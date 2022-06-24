@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const telegraf_1 = require("telegraf");
+require("dotenv").config();
 const token = process.env.BOT_TOKEN;
 const telegram = new telegraf_1.Telegram(token);
 const bot = new telegraf_1.Telegraf(token);
-const chatId = process.env.CHAT_ID;
+// const chatId: string = process.env.CHAT_ID as string;
 bot.start((ctx) => {
     ctx.reply("Hello " + ctx.from.first_name + "!");
 });
@@ -29,9 +30,12 @@ bot.on("text", (ctx) => {
     ctx.reply("You choose the " +
         (ctx.message.text === "first" ? "First" : "Second") +
         " Option!");
-    if (chatId) {
-        telegram.sendMessage(chatId, "This message was sent without your interaction!");
-    }
+    // if (chatId) {
+    //     telegram.sendMessage(
+    //         chatId,
+    //         "This message was sent without your interaction!"
+    //     );
+    // }
 });
 bot.launch();
 // Enable graceful stop

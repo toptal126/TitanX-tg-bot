@@ -1,13 +1,15 @@
 import { Context, Markup, Telegraf, Telegram } from "telegraf";
 import { Update } from "typegram";
 
+require("dotenv").config();
+
 const token: string = process.env.BOT_TOKEN as string;
 
 const telegram: Telegram = new Telegram(token);
 
 const bot: Telegraf<Context<Update>> = new Telegraf(token);
 
-const chatId: string = process.env.CHAT_ID as string;
+// const chatId: string = process.env.CHAT_ID as string;
 
 bot.start((ctx) => {
     ctx.reply("Hello " + ctx.from.first_name + "!");
@@ -44,12 +46,12 @@ bot.on("text", (ctx) => {
             " Option!"
     );
 
-    if (chatId) {
-        telegram.sendMessage(
-            chatId,
-            "This message was sent without your interaction!"
-        );
-    }
+    // if (chatId) {
+    //     telegram.sendMessage(
+    //         chatId,
+    //         "This message was sent without your interaction!"
+    //     );
+    // }
 });
 
 bot.launch();
