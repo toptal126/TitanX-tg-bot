@@ -1,0 +1,30 @@
+{
+  "name": "titanx-tg-bot",
+  "version": "1.0.0",
+  "description": "Telegram Bot for TitanX Project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toptal126/TitanX-tg-bot.git"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "bsc",
+    "crypto",
+    "titanx"
+  ],
+  "author": "Ace Crypto",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/toptal126/TitanX-tg-bot/issues"
+  },
+  "homepage": "https://github.com/toptal126/TitanX-tg-bot#readme",
+  "devDependencies": {
+    "tslint": "^6.1.3",
+    "typescript": "^4.7.4"
+  }
+}
