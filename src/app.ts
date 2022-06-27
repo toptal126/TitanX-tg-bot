@@ -76,6 +76,7 @@ const sendSwapMessageToChannel = (
     const text = `<a href="https://titanx.org"><b>TitanX ${log.side}!  ${
         log.side == "SELL" ? " 💸" : " 💰"
     }</b></a>
+    <b>${log.side == "SELL" ? "🔴🔴🔴" : "🟢🟢🟢"}</b>
     <b>Spent</b>: $${log.totalUSD.toFixed(3)}
     <b>Got</b>: ${log.quoteAmount} TITAN
     <a href="https://bscscan.com/address/${
@@ -96,61 +97,61 @@ const sendSwapMessageToChannel = (
 
 let currentBlock = 0;
 const checkSwapLogs = async () => {
-    const web3 = new Web3("https://bsc-dataseed3.binance.org/");
-    const [lastBlock, coinPrice] = await Promise.all([
-        web3.eth.getBlockNumber(),
-        getLatestCoinPrice(),
-    ]);
-    // console.log(currentBlock, lastBlock, "lastBlock", coinPrice);
+    try {
+        const web3 = new Web3("https://bsc-dataseed3.binance.org/");
+        const [lastBlock, coinPrice] = await Promise.all([
+            web3.eth.getBlockNumber(),
+            getLatestCoinPrice(),
+        ]);
+        // console.log(currentBlock, lastBlock, "lastBlock", coinPrice);
 
-    const pairContract = new web3.eth.Contract(
-        ABI_UNISWAP_V2_PAIR,
-        WATCHING_PAIRS[0].pair
-    );
-    const tokenContract = new web3.eth.Contract(
-        ABI_UNISWAP_V2_PAIR,
-        WATCHING_PAIRS[0].address
-    );
-
-    const [events, minted, dead_amount] = await Promise.all([
-        pairContract.getPastEvents("Swap", {
-            fromBlock: currentBlock ? currentBlock : lastBlock - 4000,
-        }),
-        tokenContract.methods.totalSupply().call(),
-        tokenContract.methods.balanceOf(DEAD_ADDRESS).call(),
-    ]);
-    const txs = await Promise.all(
-        events.map((event: any) => {
-            return web3.eth.getTransaction(event.transactionHash);
-        })
-    );
-    txs.forEach((tx, index) => {
-        events[index].origin = tx.from;
-    });
-
-    const parsedTxLogs: any[] = parseTxSwapLog(
-        events.reverse(),
-        WATCHING_PAIRS[0],
-        coinPrice
-    );
-
-    parsedTxLogs.slice(0, 1).forEach((log: any) => {
-        sendSwapMessageToChannel(
-            log,
-            (minted - dead_amount) / 10 ** WATCHING_PAIRS[0].decimals,
-            WATCHING_PAIRS[0]
+        const pairContract = new web3.eth.Contract(
+            ABI_UNISWAP_V2_PAIR,
+            WATCHING_PAIRS[0].pair
         );
-    });
-    currentBlock = lastBlock;
+        const tokenContract = new web3.eth.Contract(
+            ABI_UNISWAP_V2_PAIR,
+            WATCHING_PAIRS[0].address
+        );
+
+        const [events, minted, dead_amount] = await Promise.all([
+            pairContract.getPastEvents("Swap", {
+                fromBlock: currentBlock ? currentBlock : lastBlock - 4000,
+            }),
+            tokenContract.methods.totalSupply().call(),
+            tokenContract.methods.balanceOf(DEAD_ADDRESS).call(),
+        ]);
+        const txs = await Promise.all(
+            events.map((event: any) => {
+                return web3.eth.getTransaction(event.transactionHash);
+            })
+        );
+        txs.forEach((tx, index) => {
+            events[index].origin = tx.from;
+        });
+
+        const parsedTxLogs: any[] = parseTxSwapLog(
+            events.reverse(),
+            WATCHING_PAIRS[0],
+            coinPrice
+        );
+
+        parsedTxLogs.slice(0, 1).forEach((log: any) => {
+            sendSwapMessageToChannel(
+                log,
+                (minted - dead_amount) / 10 ** WATCHING_PAIRS[0].decimals,
+                WATCHING_PAIRS[0]
+            );
+        });
+        currentBlock = lastBlock;
+    } catch (error) {
+        console.log(error);
+    }
 };
 
 const startTitanXWatch = async () => {
     setInterval(() => {
-        try {
-            checkSwapLogs();
-        } catch (error) {
-            console.log(error);
-        }
+        checkSwapLogs();
     }, 5000);
 };
 
