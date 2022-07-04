@@ -17,6 +17,7 @@ import {
     ADDING_LOGO,
     CUSTOMER_DATA,
     NONE_ACTION,
+    SEARCHING_TOKEN,
     TYPING_ADDRESS,
 } from "./helper/interface";
 
@@ -126,6 +127,7 @@ bot.action("selectTokenByAddress", (ctx: any) => {
     bot.telegram.sendMessage(ctx.chat.id, "Type your token Address!");
 });
 bot.action("selectSearchToken", (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
     customerStatus[dmId].status = SEARCHING_TOKEN;
     bot.telegram.sendMessage(
         ctx.chat.id,
