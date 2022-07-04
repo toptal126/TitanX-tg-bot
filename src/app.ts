@@ -8,6 +8,7 @@ import {
     getTokenInformation,
     parseSwapLog,
     parseTxSwapLog,
+    queryTokens,
     searchPairsByTokenAddress,
 } from "./helper/helpers";
 import { connectDB } from "./helper/database-actions";
@@ -17,6 +18,7 @@ import {
     ADDING_LOGO,
     CUSTOMER_DATA,
     NONE_ACTION,
+    Pair,
     SEARCHING_TOKEN,
     TYPING_ADDRESS,
 } from "./helper/interface";
@@ -128,6 +130,10 @@ bot.action("selectTokenByAddress", (ctx: any) => {
 });
 bot.action("selectSearchToken", (ctx: any) => {
     const dmId: string = "" + ctx.chat.id;
+
+    if (!customerStatus[dmId]) {
+        customerStatus[dmId] = { status: NONE_ACTION };
+    }
     customerStatus[dmId].status = SEARCHING_TOKEN;
     bot.telegram.sendMessage(
         ctx.chat.id,
@@ -206,6 +212,27 @@ bot.on("text", async (ctx: any) => {
                 ],
             },
         });
+    }
+
+    if (customerStatus[dmId].status == SEARCHING_TOKEN) {
+        let queryResults = await queryTokens(replyText);
+        // @ts-ignore
+        let result: { [key: string]: any } = [];
+        queryResults.forEach((pair: Pair) => {
+            result[pair.token0] = {
+                name: pair.token0Name,
+                symbol: pair.token0Symbol,
+            };
+            result[pair.token0] = {
+                name: pair.token0Name,
+                symbol: pair.token0Symbol,
+            };
+        });
+        let response = "";
+        for (let tokenAddress in result) {
+            response = `${response} ${result[tokenAddress].symbol}(${result[tokenAddress].name}) ${tokenAddress}`;
+        }
+        bot.telegram.sendMessage(dmId, response);
     }
 });
 

@@ -162,3 +162,14 @@ export const getTokenInformation = async (tokenAddress: string) => {
         return 0;
     }
 };
+
+export const queryTokens = async (query: string) => {
+    try {
+        const response: any = await axios.get(
+            getApiUrl(`/pairs/search/${query}`)
+        );
+        return response.data;
+    } catch (error) {
+        return 0;
+    }
+};
