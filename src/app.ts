@@ -343,7 +343,7 @@ const checkSwapLogs = async (index: number) => {
 
         parsedTxLogs
             .filter((log) => log.totalUSD > 10)
-            .slice(0, 1)
+            // .slice(0, 1)
             .forEach((log: any) => {
                 sendSwapMessageToChannel(
                     log,
