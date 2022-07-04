@@ -39,6 +39,9 @@
     "dependencies": {
         "axios": "^0.27.2",
         "eth-crypto": "^2.3.0",
+        "mongodb": "^4.7.0",
+        "mongoose": "^6.4.2",
+        "node-fetch": "^3.2.6",
         "web3": "^1.7.4"
     }
 }
