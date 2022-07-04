@@ -1,16 +1,28 @@
 import { Context, Markup, Telegraf, Telegram } from "telegraf";
 import { Update } from "typegram";
-import { DEAD_ADDRESS, WATCHING_PAIRS } from "./constants";
+import { DEAD_ADDRESS } from "./constants";
 import ABI_UNISWAP_V2_PAIR from "./abis/ABI_UNISWAP_V2_PAIR.json";
 import {
+    extractTokenInfo,
     getLatestCoinPrice,
+    getTokenInformation,
     parseSwapLog,
     parseTxSwapLog,
+    searchPairsByTokenAddress,
 } from "./helper/helpers";
 import { connectDB } from "./helper/database-actions";
-import { TrackToken } from "./helper/models/TrackToken";
+import { ITrackToken, TrackToken } from "./helper/models/TrackToken";
+import {
+    ADDING_DONE,
+    ADDING_LOGO,
+    CUSTOMER_DATA,
+    NONE_ACTION,
+    TYPING_ADDRESS,
+} from "./helper/interface";
 
 const Web3 = require("web3");
+const web3 = new Web3("https://bsc-dataseed3.binance.org/");
+
 require("dotenv").config();
 
 const token: string = process.env.BOT_TOKEN as string;
@@ -20,7 +32,11 @@ const bot: Telegraf<Context<Update>> = new Telegraf(token);
 // const chatId: string = process.env.CHAT_ID as string;
 const CHANNEL_ID = -1001462234815;
 const BANNER_IMAGE =
-    "https://lh6.googleusercontent.com/L3ehxK1oHfdi85FJ_uVDUcFN5ag0fe3IvqgqqybX8cbsZUC2aBj3u33y-pcO0wUzd1tn98YMubdNEjuf3n2M";
+    "https://lh3.googleusercontent.com/gMn8IP9u58K1oWilvconiZzpzXquB-oaVwztv48zJq_GVS2L2aHzgt3a-6NZcwwN5NXlfEJ1ThbISOxXHq1Q";
+
+// @ts-ignore
+const customerStatus: { [key: string]: CUSTOMER_DATA } = [];
+let trackingTargets: ITrackToken[];
 
 bot.start((ctx) => {
     ctx.reply("Hello!!! " + ctx.from.first_name + "!");
@@ -31,6 +47,7 @@ bot.help((ctx) => {
     ctx.reply(
         "Send /add to start tracking your own token price at realtime, 😎!"
     );
+    ctx.reply("Send /manage to configure your current tracking token!");
     ctx.reply("Send /quit to stop the bot");
 });
 
@@ -42,12 +59,45 @@ bot.command("quit", (ctx) => {
     ctx.leaveChat();
 });
 
+bot.command("delete", async (ctx) => {
+    const dmId: string = "" + ctx.chat.id;
+    const trackingTarget = await TrackToken.findOne({ chatId: dmId }).exec();
+    if (!trackingTarget) {
+        bot.telegram.sendMessage(
+            ctx.chat.id,
+            "You don't have any active tracking bot!"
+        );
+        return;
+    }
+    const guideMessage = `You have a tracking bot for ${trackingTarget.symbol}, are you going to delete the bot?`;
+    bot.telegram.sendMessage(ctx.chat.id, guideMessage, {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    {
+                        text: "😢 Yes",
+                        callback_data: "selectDeleteTrackingBot",
+                    },
+                ],
+            ],
+        },
+    });
+});
+bot.action("selectDeleteTrackingBot", async (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
+    await TrackToken.findOneAndDelete({ chatId: dmId }).exec();
+    bot.telegram.sendMessage(
+        ctx.chat.id,
+        "You bot had removed. You can add by /add command any time you want."
+    );
+    fetchTrackingTargets();
+});
+
 bot.command("add", (ctx) => {
-    console.log(ctx.from);
-    let guideMessage = `Great!, You are going to start tracking activities of your own or favorite token!
+    let guideMessage = `Great! You are going to start tracking activities of your own or favorite token!
     If you have token address, select 🎡 Address below.
     Want to search token by name or symbol select 🔎 Find option.`;
-    ctx.deleteMessage();
+
     bot.telegram.sendMessage(ctx.chat.id, guideMessage, {
         reply_markup: {
             inline_keyboard: [
@@ -67,15 +117,21 @@ bot.command("add", (ctx) => {
 });
 
 bot.action("selectTokenByAddress", (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
+    if (!customerStatus[dmId]) {
+        customerStatus[dmId] = { status: NONE_ACTION };
+    }
+    customerStatus[dmId] = { status: TYPING_ADDRESS };
+
     bot.telegram.sendMessage(ctx.chat.id, "Type your token Address!");
 });
 bot.action("selectSearchToken", (ctx: any) => {
+    customerStatus[dmId].status = SEARCHING_TOKEN;
     bot.telegram.sendMessage(
         ctx.chat.id,
-        "Type your token name or symbol, I will show your search result!"
+        "Type your query to search token, I will show your search result!"
     );
 });
-
 // https://t.me/TitanXTestingBot -1001462234815
 // https://t.me/TitanXProject -1001517511060
 telegram.getChat("@TitanXProject").then((chat) => {
@@ -83,7 +139,96 @@ telegram.getChat("@TitanXProject").then((chat) => {
     // console.log(chat.id);
 });
 
-bot.on("text", (ctx) => {});
+bot.on("text", async (ctx: any) => {
+    const dmId: string = ctx.chat.id;
+    const replyText: string = ctx.message.text;
+    if (!customerStatus[dmId]) {
+        customerStatus[dmId] = { status: NONE_ACTION };
+    }
+    console.log(dmId, customerStatus[dmId].status);
+    if (customerStatus[dmId].status == TYPING_ADDRESS) {
+        let checksumAddress: string = "";
+        try {
+            checksumAddress = web3.utils.toChecksumAddress(replyText);
+            const [pairs, tokenInfo, existingBot] = await Promise.all([
+                searchPairsByTokenAddress(checksumAddress),
+                getTokenInformation(checksumAddress),
+                TrackToken.findOne({ id: checksumAddress }).exec(),
+            ]);
+            if (existingBot) {
+                bot.telegram.sendMessage(
+                    dmId,
+                    "This token is already being tacked by our TitanXOwl, try with another address"
+                );
+                return;
+            }
+            const parsedTokenInfo = extractTokenInfo(pairs[0], tokenInfo);
+            customerStatus[dmId].tokenInfo = parsedTokenInfo;
+
+            let guideMessage = `DingDong! We found token for this address ${checksumAddress}.\nToken symbol(name): ${parsedTokenInfo.symbol}(${parsedTokenInfo.name})\nDecimals: ${parsedTokenInfo.decimals}
+            You can all token logo for ${parsedTokenInfo.symbol} or  start tracking just now!!!`;
+            bot.telegram.sendMessage(dmId, guideMessage, {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: "🎨 Add Logo",
+                                callback_data: "selectAddLogo",
+                            },
+                            {
+                                text: "💨 Yes, Start Tracking!",
+                                callback_data: "selectStartTracking",
+                            },
+                        ],
+                    ],
+                },
+            });
+        } catch (error) {
+            bot.telegram.sendMessage(dmId, "This address is invalid!");
+            return;
+        }
+    }
+    if (customerStatus[dmId].status == ADDING_LOGO) {
+        // @ts-ignore
+        customerStatus[dmId].tokenInfo.logo = replyText;
+        let guideMessage = `Hiya, we remember your logo!!!\nYou can start right now!!`;
+        bot.telegram.sendMessage(dmId, guideMessage, {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "💨 Yes, Start Tracking!",
+                            callback_data: "selectStartTracking",
+                        },
+                    ],
+                ],
+            },
+        });
+    }
+});
+
+bot.action("selectAddLogo", (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
+    customerStatus[dmId].status = ADDING_LOGO;
+    bot.telegram.sendMessage(ctx.chat.id, "Type the image url of token logo.");
+});
+
+bot.action("selectStartTracking", async (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
+    const updateDBItem = {
+        ...customerStatus[dmId].tokenInfo,
+        chatId: dmId,
+    };
+    await TrackToken.findOneAndUpdate({ chatId: dmId }, updateDBItem, {
+        upsert: true,
+    });
+    customerStatus[dmId].status = ADDING_DONE;
+    bot.telegram.sendMessage(
+        dmId,
+        "Yeap! We included your token into our targets."
+    );
+    fetchTrackingTargets();
+});
 
 bot.launch();
 
@@ -95,17 +240,20 @@ const sendSwapMessageToChannel = async (
 ) => {
     // bot.telegram.sendVideoNote()
 
-    const text = `<a href="https://titanx.org"><b>TitanX ${log.side}!  ${
-        log.side == "SELL" ? " 💸" : " 💰"
-    }</b></a>
+    const text = `<a href="https://titanx.org"><b>${pairInfo.name} ${
+        log.side
+    }!  ${log.side == "SELL" ? " 💸" : " 💰"}</b></a>
     <b>${log.side == "SELL" ? "🔴🔴🔴" : "🟢🟢🟢"}</b>
     <b>Spent</b>: $${log.totalUSD.toFixed(3)}
-    <b>Got</b>: ${log.quoteAmount} TITAN
+    <b>Got</b>: ${log.quoteAmount} ${pairInfo.symbol}
     <a href="https://bscscan.com/address/${
         log.buyer
-    }">Buyer: 🎁 ${log.buyer.slice(0, 4)}..${log.buyer.slice(-3)}</a>
+    }">Buyer: 🎁 ${log.buyer.slice(0, 6)}..${log.buyer.slice(-3)}</a>
     <b>Price</b>: $${log.priceUSD.toFixed(8)}
     <b>MarketCap</b>: $${(cur_supply * log.priceUSD * 2).toFixed(3)}
+    <a href="https://bscscan.com/address/${
+        pairInfo.id
+    }">Address: © ${pairInfo.id.slice(0, 6)}..${pairInfo.id.slice(-3)}</a>
     <a href="https://titanx.org">Visit TitanX | </a><a href="${
         log.transactionHash
     }">TX | </a><a href="https://titanx.org/dashboard/defi-exchange/${
@@ -123,9 +271,8 @@ const sendSwapMessageToChannel = async (
 };
 
 let currentBlock = 0;
-const checkSwapLogs = async () => {
+const checkSwapLogs = async (index: number) => {
     try {
-        const web3 = new Web3("https://bsc-dataseed3.binance.org/");
         const [lastBlock, coinPrice] = await Promise.all([
             web3.eth.getBlockNumber(),
             getLatestCoinPrice(),
@@ -134,18 +281,18 @@ const checkSwapLogs = async () => {
 
         const pairContract = new web3.eth.Contract(
             ABI_UNISWAP_V2_PAIR,
-            WATCHING_PAIRS[0].pair
+            trackingTargets[index].pair
         );
         const tokenContract = new web3.eth.Contract(
             ABI_UNISWAP_V2_PAIR,
-            WATCHING_PAIRS[0].address
+            trackingTargets[index].id
         );
 
         const [events, minted, dead_amount] = await Promise.all([
             pairContract.getPastEvents("Swap", {
-                // fromBlock: currentBlock ? currentBlock : lastBlock - 4000,
-                fromBlock: currentBlock ? currentBlock : lastBlock - 78000,
-                toBlock: currentBlock ? currentBlock : lastBlock - 73000,
+                fromBlock: currentBlock ? currentBlock : lastBlock - 5,
+                // fromBlock: currentBlock ? currentBlock : lastBlock - 98000,
+                // toBlock: currentBlock ? currentBlock : lastBlock - 93000,
             }),
             tokenContract.methods.totalSupply().call(),
             tokenContract.methods.balanceOf(DEAD_ADDRESS).call(),
@@ -161,32 +308,33 @@ const checkSwapLogs = async () => {
 
         const parsedTxLogs: any[] = parseTxSwapLog(
             events.reverse(),
-            WATCHING_PAIRS[0],
+            trackingTargets[index],
             coinPrice
         );
 
-        parsedTxLogs.slice(0, 1).forEach((log: any) => {
-            sendSwapMessageToChannel(
-                log,
-                (minted - dead_amount) / 10 ** WATCHING_PAIRS[0].decimals,
-                WATCHING_PAIRS[0]
-            );
-        });
+        parsedTxLogs
+            .filter((log) => log.totalUSD > 10)
+            .slice(0, 1)
+            .forEach((log: any) => {
+                sendSwapMessageToChannel(
+                    log,
+                    (minted - dead_amount) /
+                        10 ** trackingTargets[index].decimals,
+                    trackingTargets[index]
+                );
+            });
         currentBlock = lastBlock;
     } catch (error) {
         console.log(error);
     }
 };
-
+const fetchTrackingTargets = async () => {
+    trackingTargets = await TrackToken.find({}).exec();
+};
 const startTitanXWatch = async () => {
-    const obj = new TrackToken({
-        chatId: 123,
-        tokenAddress: "0x321321",
-    });
-    // obj.save();
-
+    await fetchTrackingTargets();
     setInterval(() => {
-        // checkSwapLogs();
+        trackingTargets.forEach((item, index) => checkSwapLogs(index));
     }, 5000);
 };
 connectDB();

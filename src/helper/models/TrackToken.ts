@@ -1,10 +1,19 @@
 import { Schema, model, connect } from "mongoose";
 
 // 1. Create an interface representing a document in MongoDB.
-interface ITrackToken {
+export interface ITrackToken {
     chatId: number;
-    tokenAddress: string;
-    avatar?: string;
+    id: string;
+    minted: number;
+    burned: number;
+    name: string;
+    symbol: string;
+    decimals: number;
+    pair: string;
+    isToken1BNB: boolean;
+    isToken1BUSD: boolean;
+    isBUSDPaired: boolean;
+    logo?: string;
     description?: string;
 }
 
@@ -12,11 +21,20 @@ interface ITrackToken {
 const trackTokenSchema = new Schema<ITrackToken>(
     {
         chatId: { type: Number, required: true, index: true },
-        tokenAddress: { type: String, required: true },
-        avatar: String,
-        description: String,
+        id: { type: String, required: true, index: true },
+        minted: { type: Number, required: true },
+        burned: { type: Number, required: true },
+        name: { type: String, required: true },
+        symbol: { type: String, required: true },
+        decimals: { type: Number, required: true },
+        pair: { type: String, required: true },
+        isToken1BNB: { type: Boolean, required: true },
+        isToken1BUSD: { type: Boolean, required: true },
+        isBUSDPaired: { type: Boolean, required: true },
+        logo: { type: String },
+        description: { type: String },
     },
-    { collection: "bsc" }
+    { collection: "bsc", versionKey: false }
 );
 
 // 3. Create a Model.

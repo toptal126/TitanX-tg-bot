@@ -1,3 +1,5 @@
+import { Pair, ParsedTokenFromPair, TokenInfo } from "./interface";
+
 const axios = require("axios");
 
 export const API_ENDPOINT = "https://data.titanx.org";
@@ -110,11 +112,52 @@ export const parseTxSwapLog = (
         };
     });
 };
+export const extractTokenInfo = (
+    pair: Pair,
+    tokenInfo: TokenInfo
+): ParsedTokenFromPair => {
+    let result: ParsedTokenFromPair;
+    if (tokenInfo.id == pair.token0) {
+        return {
+            ...tokenInfo,
+            name: pair.token0Name,
+            symbol: pair.token0Symbol,
+        };
+    } else {
+        return {
+            ...tokenInfo,
+            name: pair.token1Name,
+            symbol: pair.token1Symbol,
+        };
+    }
+};
 
 export const getLatestCoinPrice = async () => {
     try {
         const response: any = await axios.get(getApiUrl(`/coinprice/latest`));
         return response.data.usdPrice;
+    } catch (error) {
+        return 0;
+    }
+};
+
+export const searchPairsByTokenAddress = async (tokenAddress: string) => {
+    try {
+        const response: any = await axios.get(
+            getApiUrl(`/pairs/token/${tokenAddress}`)
+        );
+        return response.data;
+    } catch (error) {
+        return 0;
+    }
+};
+
+export const getTokenInformation = async (tokenAddress: string) => {
+    try {
+        const response: any = await axios.get(
+            getApiUrl(`/coinprice/information/${tokenAddress}`)
+        );
+        return response.data;
     } catch (error) {
         return 0;
     }
