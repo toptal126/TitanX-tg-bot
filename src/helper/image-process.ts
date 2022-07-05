@@ -64,7 +64,7 @@ const manipulateImage = async (
     <svg width="${width}" height="${height}">
       <style>
       .emoji {
-        font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Android Emoji","EmojiOne Mozilla","Twemoji Mozilla","Noto Emoji","Segoe UI Symbol",EmojiSymbols;
+        font-family: "Noto Mono";
       }
       .header { fill: #2dceaa; font-size: 70px; font-weight: normal;}
       .symbol { fill: #2dceaa; font-size: 84px; font-weight: normal;}
