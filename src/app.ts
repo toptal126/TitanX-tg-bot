@@ -22,6 +22,7 @@ import {
     SEARCHING_TOKEN,
     TYPING_ADDRESS,
 } from "./helper/interface";
+import * as drawer from "./helper/image-process";
 
 const Web3 = require("web3");
 const web3 = new Web3("https://bsc-dataseed3.binance.org/");
@@ -34,8 +35,7 @@ const bot: Telegraf<Context<Update>> = new Telegraf(token);
 
 // const chatId: string = process.env.CHAT_ID as string;
 const CHANNEL_ID = -1001462234815;
-const BANNER_IMAGE =
-    "https://lh3.googleusercontent.com/gMn8IP9u58K1oWilvconiZzpzXquB-oaVwztv48zJq_GVS2L2aHzgt3a-6NZcwwN5NXlfEJ1ThbISOxXHq1Q";
+const BANNER_IMAGE = "./image/banner.jpg";
 
 // @ts-ignore
 const customerStatus: { [key: string]: CUSTOMER_DATA } = [];
@@ -340,7 +340,6 @@ const checkSwapLogs = async (index: number) => {
             trackingTargets[index],
             coinPrice
         );
-
         parsedTxLogs
             .filter((log) => log.totalUSD > 10)
             // .slice(0, 1)

@@ -173,3 +173,18 @@ export const queryTokens = async (query: string) => {
         return 0;
     }
 };
+
+const getBaseLog = (x: number, y: number) => {
+    return Math.log(y) / Math.log(x);
+};
+
+export const floatConverter = (value: number) => {
+    const len = 1 / value;
+    if (getBaseLog(10, len) > 4) {
+        let multipled = value * 10 ** getBaseLog(10, len) - 2;
+        return "0.00.." + multipled.toFixed(6).toString().slice(4);
+    }
+    if (value < 1) return value.toFixed(5);
+    else if (value < 10) return value.toFixed(4);
+    return value.toFixed(3);
+};
