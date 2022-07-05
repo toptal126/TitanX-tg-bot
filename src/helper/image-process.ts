@@ -107,7 +107,7 @@ const manipulateImage = async (
     `;
 
     const svgBuffer = Buffer.from(svgImage);
-    const outputPath = `./dist/img-output/${
+    const outputPath = `${process.cwd()}/dist/img-output/${
         pairInfo.id
     }-${new Date().getTime()}.png`;
     await bannerSharp
@@ -129,7 +129,16 @@ const manipulateImage = async (
             },
         ])
         .toFile(outputPath);
-    console.log(new Date().getTime() - st);
+    setTimeout(() => {
+        fs.unlink(outputPath, (error: any) => {
+            if (error) console.log(error);
+        });
+        // console.log(`deleting ${outputPath}`);
+    }, 10 * 60 * 1000);
+    console.log(
+        `Took ${new Date().getTime() - st}ms to generate ${outputPath}`
+    );
+    return outputPath;
 };
 
 export { getMetadata, manipulateImage };

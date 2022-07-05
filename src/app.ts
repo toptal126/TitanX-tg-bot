@@ -6,7 +6,6 @@ import {
     extractTokenInfo,
     getLatestCoinPrice,
     getTokenInformation,
-    parseSwapLog,
     parseTxSwapLog,
     queryTokens,
     searchPairsByTokenAddress,
@@ -35,7 +34,6 @@ const bot: Telegraf<Context<Update>> = new Telegraf(token);
 
 // const chatId: string = process.env.CHAT_ID as string;
 const CHANNEL_ID = -1001462234815;
-const BANNER_IMAGE = "./image/banner.jpg";
 
 // @ts-ignore
 const customerStatus: { [key: string]: CUSTOMER_DATA } = [];
@@ -290,10 +288,26 @@ const sendSwapMessageToChannel = async (
     }?chain=bsc">Buy | </a><a href="https://titanx.org/dashboard/defi-exchange/${
         pairInfo.address
     }?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
+
+
+    const simpleText = `<a href="https://titanx.org">Visit TitanX | </a><a href="https://bscscan.com/address/${
+        pairInfo.id
+    }">BSCSCAN | </a><a href="${
+        log.transactionHash
+    }">TX | </a><a href="https://titanx.org/dashboard/defi-exchange/${
+        pairInfo.address
+    }?chain=bsc">Buy | </a><a href="https://titanx.org/dashboard/defi-exchange/${
+        pairInfo.address
+    }?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
     // console.log(text);
     // bot.telegram.sendMessage(CHANNEL_ID, text, { parse_mode: "HTML" });
-    await bot.telegram.sendPhoto(CHANNEL_ID, BANNER_IMAGE, {
-        caption: text,
+    const uploadImagePath = await drawer.manipulateImage(
+        log,
+        cur_supply,
+        pairInfo
+    );
+    await bot.telegram.sendPhoto(CHANNEL_ID, {source: uploadImagePath}, {
+        caption: simpleText,
         parse_mode: "HTML",
     });
     // bot.telegram.sendAnimation()
@@ -360,7 +374,7 @@ const fetchTrackingTargets = async () => {
     trackingTargets = await TrackToken.find({}).exec();
 };
 const startTitanXWatch = async () => {
-    await fetchTrackingTargets();
+    await Promise.all([fetchTrackingTargets(), drawer.getMetadata()]);
     setInterval(() => {
         trackingTargets.forEach((item, index) => checkSwapLogs(index));
     }, 5000);
