@@ -66,12 +66,12 @@ const manipulateImage = async (
       .emoji {
         font-family: "Noto Mono";
       }
-      .header { fill: #2dceaa; font-size: 70px; font-weight: normal;}
-      .symbol { fill: #2dceaa; font-size: 84px; font-weight: normal;}
+      .header { fill: #2dceaa; font-size: 70px; font-weight: bold;}
+      .symbol { fill: #2dceaa; font-size: 84px; font-weight: bold;}
       .price { fill: #2dceaa; font-size: 150px; font-weight: bold;}
-      .buyer { fill: #e4a814; font-size: 60px; font-weight: normal;}
-      .info { fill: #fff; font-size: 40px; font-weight: normal;}
-      .address { fill: #fff; font-size: 28px; font-weight: normal;}
+      .buyer { fill: #e4a814; font-size: 60px; font-weight: bold;}
+      .info { fill: #fff; font-size: 40px; font-weight: bold;}
+      .address { fill: #fff; font-size: 28px; font-weight: bold;}
       </style>
       <text y="150px" x="100px" text-anchor="left" class="header">${log.side}
       </text>

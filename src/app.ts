@@ -289,16 +289,7 @@ const sendSwapMessageToChannel = async (
         pairInfo.address
     }?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
 
-
-    const simpleText = `<a href="https://titanx.org">Visit TitanX | </a><a href="https://bscscan.com/address/${
-        pairInfo.id
-    }">BSCSCAN | </a><a href="${
-        log.transactionHash
-    }">TX | </a><a href="https://titanx.org/dashboard/defi-exchange/${
-        pairInfo.address
-    }?chain=bsc">Buy | </a><a href="https://titanx.org/dashboard/defi-exchange/${
-        pairInfo.address
-    }?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
+    const simpleText = `<a href="https://titanx.org">Visit TitanX | </a><a href="https://bscscan.com/address/${pairInfo.id}">BSCSCAN | </a><a href="${log.transactionHash}">TX | </a><a href="https://titanx.org/dashboard/defi-exchange/${pairInfo.address}?chain=bsc">Buy | </a><a href="https://titanx.org/dashboard/defi-exchange/${pairInfo.address}?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
     // console.log(text);
     // bot.telegram.sendMessage(CHANNEL_ID, text, { parse_mode: "HTML" });
     const uploadImagePath = await drawer.manipulateImage(
@@ -306,10 +297,14 @@ const sendSwapMessageToChannel = async (
         cur_supply,
         pairInfo
     );
-    await bot.telegram.sendPhoto(CHANNEL_ID, {source: uploadImagePath}, {
-        caption: simpleText,
-        parse_mode: "HTML",
-    });
+    await bot.telegram.sendPhoto(
+        CHANNEL_ID,
+        { source: uploadImagePath },
+        {
+            caption: simpleText,
+            parse_mode: "HTML",
+        }
+    );
     // bot.telegram.sendAnimation()
 };
 
@@ -356,14 +351,18 @@ const checkSwapLogs = async (index: number) => {
         );
         parsedTxLogs
             .filter((log) => log.totalUSD > 10)
-            // .slice(0, 1)
-            .forEach((log: any) => {
-                sendSwapMessageToChannel(
-                    log,
-                    (minted - dead_amount) /
-                        10 ** trackingTargets[index].decimals,
-                    trackingTargets[index]
-                );
+            .slice(0, 1)
+            .forEach(async (log: any) => {
+                try {
+                    await sendSwapMessageToChannel(
+                        log,
+                        (minted - dead_amount) /
+                            10 ** trackingTargets[index].decimals,
+                        trackingTargets[index]
+                    );
+                } catch (error) {
+                    console.error(error);
+                }
             });
         currentBlock = lastBlock;
     } catch (error) {
