@@ -147,7 +147,7 @@ telegram.getChat("@TitanXProject").then((chat) => {
 
 bot.on("text", async (ctx: any) => {
     const dmId: string = ctx.chat.id;
-    const replyText: string = ctx.message.text;
+    const replyText: string = ctx.message.text.trim();
     if (!customerStatus[dmId]) {
         customerStatus[dmId] = { status: NONE_ACTION };
     }
@@ -195,6 +195,10 @@ bot.on("text", async (ctx: any) => {
         }
     }
     if (customerStatus[dmId].status == ADDING_LOGO) {
+        if (replyText === "") {
+            bot.telegram.sendMessage(dmId, "Invalid URL");
+            return;
+        }
         // @ts-ignore
         customerStatus[dmId].tokenInfo.logo = replyText;
         let guideMessage = `Hiya, we remember your logo!!!\nYou can start right now!!`;
@@ -256,8 +260,14 @@ bot.on("text", async (ctx: any) => {
 
 bot.action("selectAddLogo", (ctx: any) => {
     const dmId: string = "" + ctx.chat.id;
+    if (!customerStatus[dmId]) {
+        return;
+    }
     customerStatus[dmId].status = ADDING_LOGO;
-    bot.telegram.sendMessage(ctx.chat.id, "Type the image url of token logo.");
+    bot.telegram.sendMessage(
+        ctx.chat.id,
+        "Type the image url of token logo. We only accept png format images and idea size is 200px*200px."
+    );
 });
 
 bot.action("selectStartTracking", async (ctx: any) => {

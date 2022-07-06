@@ -60,3 +60,8 @@ export interface ParsedTokenFromPair {
     isBUSDPaired: boolean;
     logo?: string;
 }
+
+export interface BufferStatus {
+    status: boolean;
+    buffer: any;
+}

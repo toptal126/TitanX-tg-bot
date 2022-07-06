@@ -1,6 +1,9 @@
 import { floatConverter } from "./helpers";
+import { BufferStatus } from "./interface";
+const fetch = require("node-fetch");
 
 const fs = require("fs");
+const fsExtra = require("fs-extra");
 const path = require("path");
 const sharp = require("sharp");
 
@@ -10,7 +13,10 @@ let redLightsSharp: any;
 let moneyBagSharp: any;
 let moneyWingSharp: any;
 // let giftSharp: any;
+// @ts-ignore
+let bufferArray: { [key: string]: BufferStatus } = [];
 const getMetadata = async () => {
+    fsExtra.emptyDirSync(`${process.cwd()}/dist/img-output`);
     [
         bannerSharp,
         greenLightsSharp,
@@ -30,31 +36,9 @@ const getMetadata = async () => {
 };
 
 const manipulateImage = async (
-    log: any = {
-        coinPrice: "227.575",
-        side: "SELL",
-        buyer: "0x286Eb173406da4f0785a8562cca78a6eCE7334D9",
-        totalUSD: 34.136228551117384,
-        priceUSD: 3.109641429482453,
-        quoteAmount: "10.978",
-        transactionHash:
-            "https://bscscan.com/tx/0x9124497e39a9d74f783199fc4b2351572c6a760304d20b3fb587355fd6403594",
-    },
+    log: any,
     cur_supply: number = 68954654,
-    pairInfo: any = {
-        _id: "62c3604d619abb9497a27cbb",
-        chatId: 2128662478,
-        burned: 508267478.7211187,
-        decimals: 18,
-        id: "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
-        isBUSDPaired: false,
-        isToken1BNB: true,
-        isToken1BUSD: false,
-        minted: 816477139.7510512,
-        name: "PancakeSwap Token",
-        pair: "0x0eD7e52944161450477ee417DE9Cd3a859b14fD0",
-        symbol: "Cake",
-    }
+    pairInfo: any
 ) => {
     const st = new Date().getTime();
     const width = 1000;
@@ -123,25 +107,70 @@ const manipulateImage = async (
     const outputPath = `${process.cwd()}/dist/img-output/${
         pairInfo.id
     }-${new Date().getTime()}.png`;
-    await bannerSharp
-        .composite([
-            {
-                input: svgBuffer,
-                top: 0,
-                left: 0,
-            },
-            {
-                input: log.side === "SELL" ? redLightsSharp : greenLightsSharp,
-                top: 80,
-                left: 270,
-            },
-            {
-                input: log.side === "SELL" ? moneyWingSharp : moneyBagSharp,
-                top: 200,
-                left: 70,
-            },
-        ])
-        .toFile(outputPath);
+    if (!!pairInfo.logo) {
+        if (!bufferArray[pairInfo.id]) {
+            bufferArray[pairInfo.id] = { status: false, buffer: null };
+        }
+        if (bufferArray[pairInfo.id].status !== true) {
+            try {
+                const fimg = await fetch(pairInfo.logo);
+                const logoBuffer = await fimg.buffer();
+                bufferArray[pairInfo.id].status = true;
+                bufferArray[pairInfo.id].buffer = await sharp(logoBuffer)
+                    .resize({ width: 200 })
+                    .toBuffer();
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    }
+    if (bufferArray[pairInfo.id].status == true) {
+        await bannerSharp
+            .composite([
+                {
+                    input: svgBuffer,
+                    top: 0,
+                    left: 0,
+                },
+                {
+                    input:
+                        log.side === "SELL" ? redLightsSharp : greenLightsSharp,
+                    top: 80,
+                    left: 270,
+                },
+                {
+                    input: log.side === "SELL" ? moneyWingSharp : moneyBagSharp,
+                    top: 200,
+                    left: 70,
+                },
+                {
+                    input: bufferArray[pairInfo.id].buffer,
+                    top: 550,
+                    left: 650,
+                },
+            ])
+            .toFile(outputPath);
+    } else
+        await bannerSharp
+            .composite([
+                {
+                    input: svgBuffer,
+                    top: 0,
+                    left: 0,
+                },
+                {
+                    input:
+                        log.side === "SELL" ? redLightsSharp : greenLightsSharp,
+                    top: 80,
+                    left: 270,
+                },
+                {
+                    input: log.side === "SELL" ? moneyWingSharp : moneyBagSharp,
+                    top: 200,
+                    left: 70,
+                },
+            ])
+            .toFile(outputPath);
     setTimeout(() => {
         fs.unlink(outputPath, (error: any) => {
             if (error) console.log(error);
