@@ -217,18 +217,38 @@ bot.on("text", async (ctx: any) => {
         // @ts-ignore
         let result: { [key: string]: any } = [];
         queryResults.forEach((pair: Pair) => {
-            result[pair.token0] = {
-                name: pair.token0Name,
-                symbol: pair.token0Symbol,
-            };
-            result[pair.token0] = {
-                name: pair.token0Name,
-                symbol: pair.token0Symbol,
-            };
+            if (
+                pair.token0.toLowerCase().includes(replyText.toLowerCase()) ||
+                pair.token0Name
+                    .toLowerCase()
+                    .includes(replyText.toLowerCase()) ||
+                pair.token0Symbol
+                    .toLowerCase()
+                    .includes(replyText.toLowerCase())
+            )
+                result[pair.token0] = {
+                    name: pair.token0Name,
+                    symbol: pair.token0Symbol,
+                };
+            if (
+                pair.token1.toLowerCase().includes(replyText.toLowerCase()) ||
+                pair.token1Name
+                    .toLowerCase()
+                    .includes(replyText.toLowerCase()) ||
+                pair.token1Symbol
+                    .toLowerCase()
+                    .includes(replyText.toLowerCase())
+            )
+                result[pair.token1] = {
+                    name: pair.token1Name,
+                    symbol: pair.token1Symbol,
+                };
         });
         let response = "";
         for (let tokenAddress in result) {
-            response = `${response} ${result[tokenAddress].symbol}(${result[tokenAddress].name}) ${tokenAddress}`;
+            let temp = `${response} ${result[tokenAddress].symbol}(${result[tokenAddress].name}) ${tokenAddress}`;
+            if (temp.length > 4000) break;
+            response = temp;
         }
         bot.telegram.sendMessage(dmId, response);
     }
@@ -289,7 +309,7 @@ const sendSwapMessageToChannel = async (
         pairInfo.address
     }?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
 
-    const simpleText = `<a href="https://titanx.org">Visit TitanX | </a><a href="https://bscscan.com/address/${pairInfo.id}">BSCSCAN | </a><a href="${log.transactionHash}">TX | </a><a href="https://titanx.org/dashboard/defi-exchange/${pairInfo.address}?chain=bsc">Buy | </a><a href="https://titanx.org/dashboard/defi-exchange/${pairInfo.address}?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
+    const simpleText = `<a href="${log.transactionHash}">Transaction | </a><a href="https://titanx.org/dashboard/defi-exchange/${pairInfo.id}?chain=bsc">Chart/Swap</a>`;
     // console.log(text);
     // bot.telegram.sendMessage(CHANNEL_ID, text, { parse_mode: "HTML" });
     const uploadImagePath = await drawer.manipulateImage(
@@ -364,7 +384,7 @@ const checkSwapLogs = async (index: number) => {
                     console.error(error);
                 }
             });
-        currentBlock = lastBlock;
+        currentBlock = lastBlock + 1;
     } catch (error) {
         console.log(error);
     }

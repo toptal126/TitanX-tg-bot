@@ -59,19 +59,34 @@ const manipulateImage = async (
     const st = new Date().getTime();
     const width = 1000;
     const height = 1000;
-
+    console.log(
+        `${path.join(__dirname, "/fonts/SignikaNegative-Regular.ttf")}`
+    );
     const svgImage = `
     <svg width="${width}" height="${height}">
+      <defs>
+        <style type="text/css">
+        
+            @font-face {
+            font-family: SignikaNegative;
+            src: url('${path.join(
+                __dirname,
+                "/fonts/SignikaNegative-Semibold.ttf"
+            )}');
+            }
+        
+        </style>
+      </defs>
       <style>
-      .emoji {
-        font-family: "Noto Mono";
+      * {
+        font-family: SignikaNegative;
       }
-      .header { fill: #2dceaa; font-size: 70px; font-weight: bold;}
-      .symbol { fill: #2dceaa; font-size: 84px; font-weight: bold;}
-      .price { fill: #2dceaa; font-size: 150px; font-weight: bold;}
-      .buyer { fill: #e4a814; font-size: 60px; font-weight: bold;}
-      .info { fill: #fff; font-size: 40px; font-weight: bold;}
-      .address { fill: #fff; font-size: 28px; font-weight: bold;}
+      .header { fill: #2dceaa; font-size: 56px; font-weight: bold;}
+      .symbol { fill: #2dceaa; font-size: 64px; font-weight: semibold;}
+      .price { fill: #2dceaa; font-size: 120px; font-weight: semibold;}
+      .buyer { fill: #e4a814; font-size: 48px; font-weight: semibold;}
+      .info { fill: #fff; font-size: 40px; font-weight: semibold;}
+      .address { fill: #fff; font-size: 32px; font-weight: semibold;}
       </style>
       <text y="150px" x="100px" text-anchor="left" class="header">${log.side}
       </text>
@@ -79,28 +94,26 @@ const manipulateImage = async (
           pairInfo.name
       }
       </text>
-      <text y="450px" x="100px" text-anchor="left" class="price">$${floatConverter(
-          log.priceUSD
-      )}</text>
+      <text y="450px" x="100px" text-anchor="left" font-family="SignikaNegative" class="price">${floatConverter(
+          parseFloat(log.quoteAmount)
+      )} ${pairInfo.symbol}</text>
       
       <text y="530px" x="150px" text-anchor="left" class="buyer">${
           log.side == "SELL" ? "Seller: " : "Buyer: "
       }  ${log.buyer.slice(0, 6)}..${log.buyer.slice(-3)}</text>
 
-      <text y="650px" x="100px" text-anchor="left" class="info">Spent: $${floatConverter(
-          log.totalUSD
+
+      <text y="700px" x="100px" text-anchor="left" class="info">Price: $${floatConverter(
+          log.priceUSD
       )}</text>
-      <text y="700px" x="100px" text-anchor="left" class="info">Got: ${floatConverter(
-          parseFloat(log.quoteAmount)
-      )} ${pairInfo.symbol}</text>
       <text y="750px" x="100px" text-anchor="left" class="info">Spent: $${floatConverter(
           log.totalUSD
       )}</text>
       <text y="800px" x="100px" text-anchor="left" class="info">MarketCap: $${(
           cur_supply * log.priceUSD
       ).toFixed(0)}</text>
-      <text y="850px" x="100px" text-anchor="left" class="info">Address:</text>
-      <text y="850px" x="260px" text-anchor="left" class="address">${
+      <text y="850px" x="100px" text-anchor="left" class="address">Address:</text>
+      <text y="850px" x="230px" text-anchor="left" class="address">${
           pairInfo.id
       }</text>
     </svg>
@@ -120,7 +133,7 @@ const manipulateImage = async (
             {
                 input: log.side === "SELL" ? redLightsSharp : greenLightsSharp,
                 top: 80,
-                left: log.side === "SELL" ? 300 : 270,
+                left: 270,
             },
             {
                 input: log.side === "SELL" ? moneyWingSharp : moneyBagSharp,

@@ -184,7 +184,11 @@ export const floatConverter = (value: number) => {
         let multipled = value * 10 ** getBaseLog(10, len) - 2;
         return "0.00.." + multipled.toFixed(6).toString().slice(4);
     }
+    if (value > 10 ** 12) return `${(value / 10 ** 12).toFixed(2)} T`;
+    else if (value > 10 ** 9) return `${(value / 10 ** 9).toFixed(2)} B`;
+    else if (value > 10 ** 6) return `${(value / 10 ** 9).toFixed(2)} M`;
     if (value < 1) return value.toFixed(5);
     else if (value < 10) return value.toFixed(4);
+    else if (value > 1000) return value.toFixed(0);
     return value.toFixed(3);
 };
