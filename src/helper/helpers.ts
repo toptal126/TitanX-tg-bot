@@ -180,6 +180,7 @@ const getBaseLog = (x: number, y: number) => {
 
 export const floatConverter = (value: number) => {
     const len = 1 / value;
+    if (value == 0) return 0;
     if (getBaseLog(10, len) > 4) {
         let multipled = value * 10 ** getBaseLog(10, len) - 2;
         return "0.00.." + multipled.toFixed(6).toString().slice(4);
