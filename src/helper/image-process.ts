@@ -96,52 +96,55 @@ const manipulateImage = async (
           pairInfo.name
       }
       </text>
-      <text y="320px" x="100px" fill="${
+
+      <text y="300px" x="100px" fill="${
           log.side == "SELL" ? "red" : "#48B66D"
       }" text-anchor="left" class="side">
         ${log.side}
       </text>
-      <text y="320px" x="${
+      <text y="300px" x="${
           log.side == "SELL" ? "330px" : "300px"
       }" fill="white" text-anchor="left" class="side">
         $${parseInt(log.totalUSD)}
       </text>
 
-      <text y="400px" x="100px" text-anchor="left" fill="white" class="quote-amount">
+      <text y="380px" x="100px" text-anchor="left" fill="white" class="quote-amount">
       ${log.side == "SELL" ? "Sold" : "Bought"}
       ${floatConverter(parseFloat(log.quoteAmount))} ${pairInfo.symbol}</text>
       
-      <text y="480px" x="100px" fill="white" text-anchor="middle" class="tag">
+      <text y="460px" x="100px" fill="white" text-anchor="middle" class="tag">
         Price
       </text>
       <text fill="${
           log.side == "SELL" ? "red" : "#48B66D"
-      }" y="530px" x="100px" text-anchor="middle" class="value">
+      }" y="510px" x="100px" text-anchor="middle" class="value">
         $${floatConverter(log.priceUSD)}
       </text>
       
-      <text y="480px" x="340px" fill="white" text-anchor="middle" class="tag">
+      <text y="460px" x="340px" fill="white" text-anchor="middle" class="tag">
         Market Cap
       </text>
       <text fill="${
           log.side == "SELL" ? "red" : "#48B66D"
-      }" y="530px" x="340px" text-anchor="middle" class="value">
+      }" y="510px" x="340px" text-anchor="middle" class="value">
         ${floatConverter(cur_supply * log.priceUSD)}
       </text>
         
-      <text y="480px" x="608px" fill="white" text-anchor="middle" class="tag">
+      <text y="460px" x="608px" fill="white" text-anchor="middle" class="tag">
         Buyer Holds
       </text>
       <text fill="${
           log.side == "SELL" ? "red" : "#48B66D"
-      }" y="530px" x="608px" text-anchor="middle" class="value">
+      }" y="510px" x="608px" text-anchor="middle" class="value">
         ${floatConverter(
-            Math.max(log.buyerBalance, parseFloat(log.quoteAmount))
+            log.side == "SELL"
+                ? log.buyerBalance
+                : Math.max(log.buyerBalance, parseFloat(log.quoteAmount))
         )}
         
       </text>
 
-      <text y="450px" x="865px" fill="white" text-anchor="middle" class="tag">
+      <text y="430px" x="865px" fill="white" text-anchor="middle" class="tag">
         Wallet Rank
       </text>
     </svg>
@@ -163,7 +166,7 @@ const manipulateImage = async (
             rank = index;
         }
     });
-    console.log(rank, "rank1");
+
     if (!!pairInfo.logo) {
         if (!bufferArray[pairInfo.id]) {
             bufferArray[pairInfo.id] = { status: false, buffer: null };
@@ -205,7 +208,7 @@ const manipulateImage = async (
                 {
                     input: ranksBuffer[rank],
                     left: 815,
-                    top: 450,
+                    top: 430,
                 },
             ])
             .toFile(outputPath);
@@ -228,7 +231,7 @@ const manipulateImage = async (
                 {
                     input: ranksBuffer[rank],
                     left: 815,
-                    top: 490,
+                    top: 430,
                 },
             ])
             .toFile(outputPath);
