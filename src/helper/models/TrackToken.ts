@@ -15,6 +15,7 @@ export interface ITrackToken {
     isBUSDPaired: boolean;
     logo?: string;
     description?: string;
+    sellDisabled: boolean;
 }
 
 // 2. Create a Schema corresponding to the document interface.
@@ -33,6 +34,7 @@ const trackTokenSchema = new Schema<ITrackToken>(
         isBUSDPaired: { type: Boolean, required: true },
         logo: { type: String },
         description: { type: String },
+        sellDisabled: { type: Boolean, required: true, default: false },
     },
     { collection: "bsc", versionKey: false }
 );

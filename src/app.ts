@@ -84,6 +84,54 @@ bot.command("delete", async (ctx) => {
         },
     });
 });
+
+bot.command("disablesell", async (ctx) => {
+    const dmId: string = "" + ctx.chat.id;
+    const trackingTarget = await TrackToken.findOne({ chatId: dmId }).exec();
+    if (!trackingTarget) {
+        bot.telegram.sendMessage(
+            ctx.chat.id,
+            "You don't have any active tracking bot!"
+        );
+        return;
+    }
+    const guideMessage = `You have a tracking bot for ${trackingTarget.symbol}, are you going to disable sell alert for the token?`;
+    bot.telegram.sendMessage(ctx.chat.id, guideMessage, {
+        reply_markup: {
+            inline_keyboard: [
+                [
+                    {
+                        text: "🆗 Enable it!",
+                        callback_data: "selectEnableSell",
+                    },
+                    {
+                        text: "🚫 Disable it!",
+                        callback_data: "selectDisableSell",
+                    },
+                ],
+            ],
+        },
+    });
+});
+
+bot.action("selectEnableSell", async (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
+    await TrackToken.findOneAndUpdate({ sellDisabled: false }).exec();
+    bot.telegram.sendMessage(
+        ctx.chat.id,
+        "Selling alert was enabled in your bot tracking!"
+    );
+    fetchTrackingTargets();
+});
+bot.action("selectDisableSell", async (ctx: any) => {
+    const dmId: string = "" + ctx.chat.id;
+    await TrackToken.findOneAndUpdate({ sellDisabled: true }).exec();
+    bot.telegram.sendMessage(
+        ctx.chat.id,
+        "Selling alert was disabled in your bot tracking!"
+    );
+    fetchTrackingTargets();
+});
 bot.action("selectDeleteTrackingBot", async (ctx: any) => {
     const dmId: string = "" + ctx.chat.id;
     await TrackToken.findOneAndDelete({ chatId: dmId }).exec();
@@ -319,7 +367,6 @@ const sendSwapMessageToChannel = async (
         pairInfo.address
     }?chain=bsc">Chart | </a><a href="https://twitter.com/TitanX_Project">Follow US</a>`;
 
-    const simpleText = `<a href="${log.transactionHash}">Transaction | </a><a href="https://titanx.org/dashboard/defi-exchange/${pairInfo.id}?chain=bsc">Chart/Swap</a>`;
     // console.log(text);
     // bot.telegram.sendMessage(CHANNEL_ID, text, { parse_mode: "HTML" });
     const uploadImagePath = await drawer.manipulateImage(
@@ -327,12 +374,25 @@ const sendSwapMessageToChannel = async (
         cur_supply,
         pairInfo
     );
+    // return;
     await bot.telegram.sendPhoto(
         CHANNEL_ID,
         { source: uploadImagePath },
         {
-            caption: simpleText,
-            parse_mode: "HTML",
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "🧾 Transaction",
+                            url: log.transactionHash,
+                        },
+                        {
+                            text: "📊 Chart / Swap",
+                            url: `https://titanx.org/dashboard/defi-exchange/${pairInfo.id}?chain=bsc`,
+                        },
+                    ],
+                ],
+            },
         }
     );
     // bot.telegram.sendAnimation()
@@ -380,10 +440,20 @@ const checkSwapLogs = async (index: number) => {
             coinPrice
         );
         parsedTxLogs
-            .filter((log) => log.totalUSD > 10)
+            .filter((log) => {
+                return (
+                    log.totalUSD > 10 &&
+                    (!trackingTargets[index].sellDisabled || log.side != "SELL")
+                );
+            })
             .slice(0, 1)
             .forEach(async (log: any) => {
                 try {
+                    log.buyerBalance =
+                        (await tokenContract.methods
+                            .balanceOf(log.buyer)
+                            .call()) /
+                        10 ** trackingTargets[index].decimals;
                     await sendSwapMessageToChannel(
                         log,
                         (minted - dead_amount) /
