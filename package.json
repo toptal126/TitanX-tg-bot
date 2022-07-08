@@ -5,8 +5,8 @@
     "main": "index.js",
     "scripts": {
         "build": "tsc",
-        "start": "node dist/app.js",
-        "dev": "nodemon src/app.ts",
+        "start": "node dist/hawk.js",
+        "dev": "nodemon src/hawk.ts & nodemon src/owls.ts",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "repository": {

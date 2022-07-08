@@ -2,7 +2,9 @@ import { Schema, model, connect } from "mongoose";
 
 // 1. Create an interface representing a document in MongoDB.
 export interface ITrackToken {
-    chatId: number;
+    botToken: string; // Bot Token
+    chatId: number; // DM Id with admin
+    channelId: number; // Channel Id which bot will be included
     id: string;
     minted: number;
     burned: number;
@@ -21,6 +23,8 @@ export interface ITrackToken {
 // 2. Create a Schema corresponding to the document interface.
 const trackTokenSchema = new Schema<ITrackToken>(
     {
+        botToken: { type: String, required: true, index: true }, // Bot Token
+        channelId: { type: Number, required: true, index: true }, // Channel Id which bot will be included
         chatId: { type: Number, required: true, index: true },
         id: { type: String, required: true, index: true },
         minted: { type: Number, required: true },

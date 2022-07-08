@@ -44,12 +44,17 @@ bot.start((ctx) => {
 });
 
 bot.help((ctx) => {
-    ctx.reply("Send /start to receive a greeting");
-    ctx.reply(
-        "Send /add to start tracking your own token price at realtime, 😎!"
-    );
-    ctx.reply("Send /manage to configure your current tracking token!");
-    ctx.reply("Send /quit to stop the bot");
+    ctx.reply(`/start - Provides a greeting message and instructions for the next steps
+/add - Will provide 2 options. Address – Enter the token address you want Owl to provide updates for. Search – To find a token address on BSC.
+/delete - Will delete all tracking activity ever provided.
+/deletelast - Will delete the last update provided to not clog up your group's media storage.
+/enablelast - Will no longer delete the previous update.
+/disablesell - Will stop providing sell updates to the group.
+/enablesell - The bot will start tracking sell updates.
+/price - Will return the Current price, Market cap & Link to view the chart.
+/rank - Will return the number of tokens and wallet rank of the address.
+/ranks - Will return the ranking order.
+/count - Will return how many groups are using OWL.`);
 });
 
 bot.command("quit", (ctx) => {
@@ -185,12 +190,6 @@ bot.action("selectSearchToken", (ctx: any) => {
         ctx.chat.id,
         "Type your query to search token, I will show your search result!"
     );
-});
-// https://t.me/TitanXTestingBot -1001462234815
-// https://t.me/TitanXProject -1001517511060
-telegram.getChat("@TitanXProject").then((chat) => {
-    // 'chat' is a Chat object
-    // console.log(chat.id);
 });
 
 bot.on("text", async (ctx: any) => {
