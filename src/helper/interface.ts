@@ -4,6 +4,7 @@ export const ADDING_LOGO = "ADDING_LOGO";
 export const SEARCHING_TOKEN = "SEARCHING_TOKEN";
 export const WAITING_CONFIRM = "WAITING_CONFIRM";
 export const ADDING_DONE = "ADDING_DONE";
+export const HAWK_SETUP = "HAWK_SETUP";
 
 export type CUSTOMERSTATUS =
     | "NONE_ACTION"
@@ -11,7 +12,8 @@ export type CUSTOMERSTATUS =
     | "ADDING_LOGO"
     | "SEARCHING_TOKEN"
     | "WAITING_CONFIRM"
-    | "ADDING_DONE";
+    | "ADDING_DONE"
+    | "HAWK_SETUP";
 
 export interface CUSTOMER_DATA {
     status: CUSTOMERSTATUS;

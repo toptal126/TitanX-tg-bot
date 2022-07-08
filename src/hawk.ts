@@ -1,7 +1,5 @@
 import { Context, Markup, Telegraf, Telegram } from "telegraf";
 import { Update } from "typegram";
-import { DEAD_ADDRESS } from "./constants";
-import ABI_UNISWAP_V2_PAIR from "./abis/ABI_UNISWAP_V2_PAIR.json";
 import {
     extractTokenInfo,
     getLatestCoinPrice,
@@ -15,13 +13,15 @@ import { ITrackToken, TrackToken } from "./helper/models/TrackToken";
 import {
     ADDING_DONE,
     ADDING_LOGO,
+    CUSTOMERSTATUS,
     CUSTOMER_DATA,
+    HAWK_SETUP,
     NONE_ACTION,
     Pair,
     SEARCHING_TOKEN,
     TYPING_ADDRESS,
 } from "./helper/interface";
-import * as drawer from "./helper/image-process";
+import { getMeBot } from "./helper/tg-api";
 
 const Web3 = require("web3");
 const web3 = new Web3("https://bsc-dataseed3.binance.org/");
@@ -29,15 +29,23 @@ const web3 = new Web3("https://bsc-dataseed3.binance.org/");
 require("dotenv").config();
 
 const token: string = process.env.MASTER_BOT_TOKEN as string;
-const telegram: Telegram = new Telegram(token);
 const bot: Telegraf<Context<Update>> = new Telegraf(token);
-
-// const chatId: string = process.env.CHAT_ID as string;
-const CHANNEL_ID = -1001462234815;
 
 // @ts-ignore
 const customerStatus: { [key: string]: CUSTOMER_DATA } = [];
-let trackingTargets: ITrackToken[];
+
+const setCustomerStatus = (
+    chatId: string,
+    status: CUSTOMERSTATUS = NONE_ACTION
+) => {
+    if (!customerStatus[chatId]) customerStatus[chatId] = { status };
+    else customerStatus[chatId].status = status;
+};
+const getCustomerStatus = (chatId: string) => {
+    if (!customerStatus[chatId])
+        customerStatus[chatId] = { status: NONE_ACTION };
+    return customerStatus[chatId].status;
+};
 
 bot.start((ctx) => {
     ctx.reply("Hello!!! " + ctx.from.first_name + "!");
@@ -53,19 +61,34 @@ bot.command("quit", (ctx) => {
     ctx.telegram.leaveChat(ctx.message.chat.id);
     ctx.leaveChat();
 });
+bot.command("setup", async (ctx) => {
+    const chatId: string = "" + ctx.chat.id;
+    setCustomerStatus(chatId, HAWK_SETUP);
+    let guideMessage;
+    const trackingTarget = await TrackToken.findOne({ chatId }).exec();
+    if (trackingTarget)
+        guideMessage = `You have a tracking bot for ${trackingTarget.symbol}, are you going to reinstall the bot? Then input bot token, and channel id as following format.
+Example: 5531234567:AAEoabcd1234xprHNyPXYZAB5arqUFqwera
+1519908574`;
+    else
+        guideMessage = `Are you going to setup new bot? Then input bot token, and channel id as following format.
+Example: 5531234567:AAEoabcd1234xprHNyPXYZAB5arqUFqwera
+1519908574`;
+    bot.telegram.sendMessage(chatId, guideMessage);
+});
 
 bot.command("delete", async (ctx) => {
-    const dmId: string = "" + ctx.chat.id;
-    const trackingTarget = await TrackToken.findOne({ chatId: dmId }).exec();
+    const chatId: string = "" + ctx.chat.id;
+    const trackingTarget = await TrackToken.findOne({ chatId }).exec();
     if (!trackingTarget) {
         bot.telegram.sendMessage(
-            ctx.chat.id,
+            chatId,
             "You don't have any active tracking bot!"
         );
         return;
     }
     const guideMessage = `You have a tracking bot for ${trackingTarget.symbol}, are you going to delete the bot?`;
-    bot.telegram.sendMessage(ctx.chat.id, guideMessage, {
+    bot.telegram.sendMessage(chatId, guideMessage, {
         reply_markup: {
             inline_keyboard: [
                 [
@@ -79,93 +102,61 @@ bot.command("delete", async (ctx) => {
     });
 });
 
-bot.command("add", (ctx) => {
-    let guideMessage = `Great! You are going to start tracking activities of your own or favorite token!
-    If you have token address, select 🎡 Address below.
-    Want to search token by name or symbol select 🔎 Find option.`;
-
-    bot.telegram.sendMessage(ctx.chat.id, guideMessage, {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    {
-                        text: "🎡 Address",
-                        callback_data: "selectTokenByAddress",
-                    },
-                    {
-                        text: "🔎 Search",
-                        callback_data: "selectSearchToken",
-                    },
-                ],
-            ],
-        },
-    });
+bot.action("selectDeleteTrackingBot", async (ctx: any) => {
+    const chatId: string = "" + ctx.chat.id;
+    await TrackToken.findOneAndDelete({ chatId }).exec();
+    bot.telegram.sendMessage(
+        chatId,
+        "You bot had removed. You can setup by /setup command any time you want."
+    );
 });
 
 bot.on("text", async (ctx: any) => {
-    const dmId: string = ctx.chat.id;
+    const chatId: string = ctx.chat.id;
     const replyText: string = ctx.message.text.trim();
-    if (!customerStatus[dmId]) {
-        customerStatus[dmId] = { status: NONE_ACTION };
-    }
-    console.log(dmId, customerStatus[dmId].status);
-    if (customerStatus[dmId].status == TYPING_ADDRESS) {
-        let checksumAddress: string = "";
-        try {
-            checksumAddress = web3.utils.toChecksumAddress(replyText);
-            const [pairs, tokenInfo, existingBot] = await Promise.all([
-                searchPairsByTokenAddress(checksumAddress),
-                getTokenInformation(checksumAddress),
-                TrackToken.findOne({ id: checksumAddress }).exec(),
-            ]);
-            if (existingBot) {
-                bot.telegram.sendMessage(
-                    dmId,
-                    "This token is already being tacked by our TitanXOwl, try with another address"
-                );
-                return;
-            }
-            const parsedTokenInfo = extractTokenInfo(pairs[0], tokenInfo);
-            customerStatus[dmId].tokenInfo = parsedTokenInfo;
 
-            let guideMessage = `DingDong! We found token for this address ${checksumAddress}.\nToken symbol(name): ${parsedTokenInfo.symbol}(${parsedTokenInfo.name})\nDecimals: ${parsedTokenInfo.decimals}
-            You can all token logo for ${parsedTokenInfo.symbol} or  start tracking just now!!!`;
-            bot.telegram.sendMessage(dmId, guideMessage, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [
-                            {
-                                text: "🎨 Add Logo",
-                                callback_data: "selectAddLogo",
-                            },
-                            {
-                                text: "💨 Yes, Start Tracking!",
-                                callback_data: "selectStartTracking",
-                            },
-                        ],
-                    ],
-                },
-            });
-        } catch (error) {
-            bot.telegram.sendMessage(dmId, "This address is invalid!");
+    if (getCustomerStatus(chatId) == HAWK_SETUP) {
+        ctx.deleteMessage();
+        const dataArr = replyText.split("\n").map((item) => item.trim());
+        if (
+            replyText === "" ||
+            dataArr.length !== 2 ||
+            dataArr.find((item) => item == "")
+        ) {
+            bot.telegram.sendMessage(chatId, "Invalid Information, try again!");
             return;
         }
-    }
-    if (customerStatus[dmId].status == ADDING_LOGO) {
-        if (replyText === "") {
-            bot.telegram.sendMessage(dmId, "Invalid URL");
+        const getMe = await getMeBot(dataArr[0]);
+        if (!getMe?.ok) {
+            bot.telegram.sendMessage(chatId, "Invalid bot token, try again!");
             return;
         }
-        // @ts-ignore
-        customerStatus[dmId].tokenInfo.logo = replyText;
-        let guideMessage = `Hiya, we remember your logo!!!\nYou can start right now!!`;
-        bot.telegram.sendMessage(dmId, guideMessage, {
+        let guideMessage = `Hiya, we remember your inforamtion!!!\nYou can start right now!!`;
+        const customerTrackToken = new TrackToken({
+            botToken: dataArr[0],
+            channelId: `-100${dataArr[1]}`,
+            chatId,
+            userId: ctx.from.id,
+            username: ctx.from.username,
+            bot_name: getMe.result.first_name,
+            bot_username: getMe.result.username,
+        });
+        TrackToken.findOneAndUpdate(
+            {
+                chatId,
+            },
+            customerTrackToken,
+            {
+                upsert: true,
+            }
+        );
+        bot.telegram.sendMessage(chatId, guideMessage, {
             reply_markup: {
                 inline_keyboard: [
                     [
                         {
-                            text: "💨 Yes, Start Tracking!",
-                            callback_data: "selectStartTracking",
+                            text: `💨 Yes, Start Using ${getMe.result.first_name}!`,
+                            url: `https://t.me/${getMe.result.username}`,
                         },
                     ],
                 ],
@@ -173,7 +164,7 @@ bot.on("text", async (ctx: any) => {
         });
     }
 
-    if (customerStatus[dmId].status == SEARCHING_TOKEN) {
+    if (getCustomerStatus(chatId) == SEARCHING_TOKEN) {
         let queryResults = await queryTokens(replyText);
         // @ts-ignore
         let result: { [key: string]: any } = [];
@@ -211,15 +202,15 @@ bot.on("text", async (ctx: any) => {
             if (temp.length > 4000) break;
             response = temp;
         }
-        bot.telegram.sendMessage(dmId, response);
+        bot.telegram.sendMessage(chatId, response);
     }
 });
 
 bot.launch();
 
-const startTitanXWatch = async () => {};
+const startTitanXHawk = async () => {};
 connectDB();
-startTitanXWatch();
+startTitanXHawk();
 
 // Enable graceful stop
 process.once("SIGINT", () => bot.stop("SIGINT"));
