@@ -443,8 +443,6 @@ Hit /help to checkout details.`;
             cur_supply,
             pairInfo
         );
-        console.log("sending ", uploadImagePath);
-        return;
         await bot.telegram.sendPhoto(
             CHANNEL_ID,
             { source: uploadImagePath },
