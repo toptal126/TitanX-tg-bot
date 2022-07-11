@@ -48,7 +48,10 @@ const getCustomerStatus = (chatId: string) => {
 };
 
 bot.start((ctx) => {
-    ctx.reply("Hello!!! " + ctx.from.first_name + "!");
+    ctx.reply(`Hello!!!  ${ctx.from.first_name}
+/start - Provides a greeting message and instructions for the next steps
+/setup - Will Will lead you to setup new TitanXOWL integrated in your channel.
+/count - Will return how many groups are using OWL.`);
 });
 
 bot.help((ctx) => {
@@ -67,11 +70,14 @@ bot.command("setup", async (ctx) => {
     let guideMessage;
     const trackingTarget = await TrackToken.findOne({ chatId }).exec();
     if (trackingTarget)
-        guideMessage = `You have a tracking bot for ${trackingTarget.symbol}, are you going to reinstall the bot? Then input bot token, and channel id as following format.
+        guideMessage = `⚠ You have a tracking bot for ${
+            trackingTarget.symbol
+        }(${trackingTarget.id.slice(0, 6)}...${trackingTarget.id.slice(-4)}).
+Are you going to reinstall the bot? Then input bot token, and channel id as following format.
 Example: 5531234567:AAEoabcd1234xprHNyPXYZAB5arqUFqwera
 1519908574`;
     else
-        guideMessage = `Are you going to setup new bot? Then input bot token, and channel id as following format.
+        guideMessage = `👋 Are you going to setup new bot? Then input bot token, and channel id as following format.
 Example: 5531234567:AAEoabcd1234xprHNyPXYZAB5arqUFqwera
 1519908574`;
     bot.telegram.sendMessage(chatId, guideMessage);
