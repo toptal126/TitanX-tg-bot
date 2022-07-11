@@ -22,6 +22,7 @@ import {
     TYPING_ADDRESS,
 } from "./helper/interface";
 import { getMeBot } from "./helper/tg-api";
+import { HAWK_HELP } from "./constants";
 
 const Web3 = require("web3");
 const web3 = new Web3("https://bsc-dataseed3.binance.org/");
@@ -49,21 +50,18 @@ const getCustomerStatus = (chatId: string) => {
 
 bot.start((ctx) => {
     ctx.reply(`Hello!!!  ${ctx.from.first_name}
-/start - Provides a greeting message and instructions for the next steps
-/setup - Will Will lead you to setup new TitanXOWL integrated in your channel.
-/count - Will return how many groups are using OWL.`);
+${HAWK_HELP}`);
 });
 
 bot.help((ctx) => {
-    ctx.reply(`/start - Provides a greeting message and instructions for the next steps
-/setup - Will Will lead you to setup new TitanXOWL integrated in your channel.
-/count - Will return how many groups are using OWL.`);
+    ctx.reply(HAWK_HELP);
 });
 
 bot.command("quit", (ctx) => {
     ctx.telegram.leaveChat(ctx.message.chat.id);
     ctx.leaveChat();
 });
+
 bot.command("setup", async (ctx) => {
     const chatId: string = "" + ctx.chat.id;
     setCustomerStatus(chatId, HAWK_SETUP);
@@ -108,6 +106,10 @@ bot.command("delete", async (ctx) => {
     });
 });
 
+bot.command("count", async (ctx) => {
+    const count = await TrackToken.countDocuments();
+    ctx.reply(`There are ${count} groups using TitanX Hawk!`);
+});
 bot.action("selectDeleteTrackingBot", async (ctx: any) => {
     const chatId: string = "" + ctx.chat.id;
     await TrackToken.findOneAndDelete({ chatId }).exec();

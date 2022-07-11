@@ -1,6 +1,6 @@
 import { Context, Markup, Telegraf, Telegram } from "telegraf";
 import { Update } from "typegram";
-import { DEAD_ADDRESS, OWL_HELP } from "./constants";
+import { DEAD_ADDRESS, OWL_HELP, OWL_RANKS } from "./constants";
 import ABI_UNISWAP_V2_PAIR from "./abis/ABI_UNISWAP_V2_PAIR.json";
 import {
     extractTokenInfo,
@@ -66,6 +66,9 @@ const launchTitanXOwl = (titanXOwl: ITrackToken) => {
     bot.use(adminFilterMiddleWare());
 
     bot.help((ctx) => {
+        ctx.reply(OWL_HELP);
+    });
+    bot.start((ctx) => {
         ctx.reply(OWL_HELP);
     });
 
@@ -193,7 +196,7 @@ const launchTitanXOwl = (titanXOwl: ITrackToken) => {
         fetchTrackingTargets();
     });
 
-    bot.command("start", (ctx) => {
+    bot.command("add", (ctx) => {
         const userId = ctx.from.id;
         if (userId != titanXOwl.userId) {
             return;
@@ -257,6 +260,22 @@ Hit /help to checkout details.`;
                 )}.`
             );
         }
+    });
+
+    bot.command("ranks", async (ctx) => {
+        ctx.reply(OWL_RANKS);
+    });
+    bot.command("rank", async (ctx) => {
+        const message = ctx.message.text.trim();
+        const startId = message.indexOf("0x");
+        if (startId === -1) {
+            ctx.reply(
+                "Invalid wallet address or usage! Ex: /rank 0x0173A37E2211096b5E75c2A3c9d8622304FD9373"
+            );
+            return;
+        }
+        let wallet = message.slice(startId, startId + 42);
+        ctx.reply(`${wallet}`);
     });
 
     bot.on("text", async (ctx: any) => {
