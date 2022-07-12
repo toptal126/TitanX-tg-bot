@@ -48,28 +48,11 @@ require("dotenv").config();
 const token: string = process.env.MASTER_BOT_TOKEN as string;
 const bot: Telegraf<Context<Update>> = new Telegraf(token);
 
-// @ts-ignore
-const customerStatus: { [key: string]: CUSTOMER_DATA } = [];
-
-const setCustomerStatus = (
-    chatId: string,
-    status: CUSTOMERSTATUS = NONE_ACTION
-) => {
-    if (!customerStatus[chatId]) customerStatus[chatId] = { status };
-    else customerStatus[chatId].status = status;
-};
-const getCustomerStatus = (chatId: string) => {
-    if (!customerStatus[chatId])
-        customerStatus[chatId] = { status: NONE_ACTION };
-    return customerStatus[chatId].status;
-};
-
 const adminFilterMiddleWare = () => async (ctx: any, next: any) => {
     const message = ctx.update.message?.text;
     const chatId = ctx.chat.id;
-    const userId = ctx.from.id;
+    const userId = ctx.from ? ctx.from.id : chatId;
 
-    if (!message) return;
     // Continue if the chat is Private
     if (ctx.chat.type === "private") {
         // Ignore if they wrote admin commands
@@ -84,12 +67,31 @@ const adminFilterMiddleWare = () => async (ctx: any, next: any) => {
 
         return next();
     }
+    if (ctx.chat.type === "channel") {
+        try {
+            const administrators = await bot.telegram.getChatAdministrators(
+                chatId
+            );
+
+            // Ignore if the bot is not an administrator
+            if (
+                !administrators.find((item) => item.user.id === bot.botInfo?.id)
+            )
+                return;
+            return next();
+        } catch (error) {
+            return;
+        }
+    }
+    if (!message) return;
 
     const administrators = await bot.telegram.getChatAdministrators(chatId);
 
     // Ignore if the bot is not an administrator
-    if (!administrators.find((item) => item.user.id === bot.botInfo?.id))
+    if (!administrators.find((item) => item.user.id === bot.botInfo?.id)) {
+        console.log("I am not a admin");
         return;
+    }
 
     let isPublicCommand = false;
     PUBLIC_COMMANDS.forEach((command) => {
@@ -119,27 +121,7 @@ bot.command("quit", (ctx) => {
     ctx.leaveChat();
 });
 
-bot.command("setup", async (ctx) => {
-    const chatId: string = "" + ctx.chat.id;
-    setCustomerStatus(chatId, HAWK_SETUP);
-    let guideMessage;
-    const trackingTarget = await TrackToken.findOne({ chatId }).exec();
-    if (trackingTarget)
-        guideMessage = `⚠ You have a tracking bot for ${
-            trackingTarget.symbol
-        }(${trackingTarget.id.slice(0, 6)}...${trackingTarget.id.slice(-4)}).
-Are you going to reinstall the bot? Then input bot token, and channel id as following format.
-Example: 5531234567:AAEoabcd1234xprHNyPXYZAB5arqUFqwera
-1519908574`;
-    else
-        guideMessage = `👋 Are you going to setup new bot? Then input bot token, and channel id as following format.
-Example: 5531234567:AAEoabcd1234xprHNyPXYZAB5arqUFqwera
-1519908574`;
-    bot.telegram.sendMessage(chatId, guideMessage);
-});
-
-bot.command("delete", async (ctx) => {
-    const chatId: string = "" + ctx.chat.id;
+const delete_command = async (ctx: any, chatId: string) => {
     const trackingTarget = await TrackToken.findOne({ chatId }).exec();
     if (!trackingTarget) {
         bot.telegram.sendMessage(
@@ -148,32 +130,28 @@ bot.command("delete", async (ctx) => {
         );
         return;
     }
-    const guideMessage = `You have a tracking bot for ${trackingTarget.symbol}, are you going to delete the bot?`;
-    bot.telegram.sendMessage(chatId, guideMessage, {
-        reply_markup: {
-            inline_keyboard: [
-                [
-                    {
-                        text: "😢 Yes",
-                        callback_data: "selectDeleteTrackingBot",
-                    },
-                ],
-            ],
-        },
-    });
+
+    await TrackToken.findOneAndDelete({ chatId }).exec();
+    ctx.reply(
+        "You bot had removed. You can setup by /setup command any time you want."
+    );
+};
+bot.command("delete", async (ctx) => {
+    const chatId: string = "" + ctx.chat.id;
+    delete_command(ctx, chatId);
 });
 
-bot.command("count", async (ctx) => {
+const count = async (ctx: any) => {
     const [count1, count2] = await Promise.all([
         TrackChannel.countDocuments(),
         TrackToken.countDocuments(),
     ]);
     ctx.reply(`There are ${count1 + count2} groups using TitanX Hawk!`);
-});
-bot.command("set_token", async (ctx) => {
+};
+bot.command("count", count);
+
+const set_token = async (ctx: any, message: string, channelId: number) => {
     let checksumAddress: string = "";
-    const channelId: number = ctx.chat.id;
-    const message: string = ctx.message.text.trim();
     const startId = message.indexOf("0x");
     const token_address = message.slice(startId, startId + 42);
     try {
@@ -243,13 +221,16 @@ We recommend 200x200 in .png format.`
         console.log(error);
         return;
     }
+};
+bot.command("set_token", async (ctx) => {
+    const message: string = ctx.message.text.trim();
+    const channelId: number = ctx.chat.id;
+    set_token(ctx, message, channelId);
 });
 
-bot.command("set_logo", async (ctx) => {
+const set_logo = async (ctx: any, message: string, channelId: number) => {
     try {
-        const message: string = ctx.message.text.trim();
         const parsedUrl: string = message.split(" ").at(-1) || "";
-        const channelId: number = ctx.chat.id;
 
         const trackChannelObj = await TrackChannel.findOne({
             channelId,
@@ -281,9 +262,14 @@ bot.command("set_logo", async (ctx) => {
         ctx.reply("Invalid image path or image format!");
         console.log(error);
     }
+};
+bot.command("set_logo", async (ctx) => {
+    const message: string = ctx.message.text.trim();
+    const channelId: number = ctx.chat.id;
+    set_logo(ctx, message, channelId);
 });
 
-bot.command("disablesell", async (ctx) => {
+const disablesell = async (ctx: any) => {
     try {
         const channelId: number = ctx.chat.id;
 
@@ -303,8 +289,10 @@ bot.command("disablesell", async (ctx) => {
 
         ctx.reply("Alert for token sale is disabled!");
     } catch (error) {}
-});
-bot.command("enablesell", async (ctx) => {
+};
+bot.command("disablesell", disablesell);
+
+const enablesell = async (ctx: any) => {
     try {
         const channelId: number = ctx.chat.id;
 
@@ -324,6 +312,19 @@ bot.command("enablesell", async (ctx) => {
 
         ctx.reply("Alert for token sale is enabled!");
     } catch (error) {}
+};
+bot.command("enablesell", enablesell);
+
+bot.on("channel_post", (ctx, next) => {
+    const postObj: any = ctx.update.channel_post;
+    if (postObj ? postObj.entities : false) {
+        const command = postObj.text.slice(
+            postObj.entities[0].offset + 1,
+            postObj.entities[0].length
+        );
+        console.log(command);
+    }
+    return next();
 });
 bot.launch();
 
@@ -332,33 +333,38 @@ const sendSwapMessageToChannel = async (
     cur_supply: number,
     trackChannel: any
 ) => {
-    // lastLog = log;
-    const uploadImagePath = await manipulateImage(
-        log,
-        cur_supply,
-        trackChannel
-    );
+    try {
+        // lastLog = log;
+        const uploadImagePath = await manipulateImage(
+            log,
+            cur_supply,
+            trackChannel
+        );
 
-    await bot.telegram.sendPhoto(
-        trackChannel.channelId,
-        { source: uploadImagePath },
-        {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: "🧾 Transaction",
-                            url: log.transactionHash,
-                        },
-                        {
-                            text: "📊 Chart / Swap",
-                            url: `https://titanx.org/dashboard/defi-exchange/${trackChannel.id}?chain=bsc`,
-                        },
+        // return;
+        await bot.telegram.sendPhoto(
+            trackChannel.channelId,
+            { source: uploadImagePath },
+            {
+                reply_markup: {
+                    inline_keyboard: [
+                        [
+                            {
+                                text: "🧾 Transaction",
+                                url: log.transactionHash,
+                            },
+                            {
+                                text: "📊 Chart / Swap",
+                                url: `https://titanx.org/dashboard/defi-exchange/${trackChannel.id}?chain=bsc`,
+                            },
+                        ],
                     ],
-                ],
-            },
-        }
-    );
+                },
+            }
+        );
+    } catch (error) {
+        console.error("Telegram Error", error);
+    }
     // bot.telegram.sendAnimation()
 };
 
