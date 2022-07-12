@@ -1,7 +1,9 @@
 export const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
 export const HAWK_HELP = `😊 Great, you found me; now, let's pair me with your token address.
+
 Type /set_token followed by your token address.
+
 For example, /set_token 0x000000`;
 
 export const OWL_HELP = `/start - Provides a greeting message and instructions for the next steps
@@ -16,6 +18,8 @@ export const OWL_HELP = `/start - Provides a greeting message and instructions f
 /ranks - Will return the ranking order.
 /count - Will return how many groups are using OWL.`;
 
+export const ranksPercentage = [0.05, 0.1, 0.25, 0.5, 0.75, 1, 2];
+
 export const OWL_RANKS = `Rank Inforamtion
 <0.00001% > 0.049% (Tortoise) 🐢
 0.05% > 0.2499% (Frog) 🐸
@@ -24,6 +28,8 @@ export const OWL_RANKS = `Rank Inforamtion
 0.75% > 0.999% (Shark) 🦈
 1% > 1.999% (Whale) 🐋
 2% > (T-REX) 🦖`;
+
+export const RANKS_EMOTICONS = ["🐢", "🐸", "🐟", "🐬", "🦈", "🐋", "🦖"];
 
 export const PUBLIC_COMMANDS = ["rank", "ranks", "price", "count"];
 export const ADMIN_COMMANDS = ["set_token", "set_logo"];

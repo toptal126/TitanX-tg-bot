@@ -134,7 +134,7 @@ export const parseTxSwapLog = (
             buyer: log.origin,
             totalUSD: totalUSD,
             priceUSD: priceUSD,
-            quoteAmount: quoteAmount.toFixed(3),
+            quoteAmount: quoteAmount.toFixed(5),
             transactionHash: `https://bscscan.com/tx/${log.transactionHash}`,
             dexPair: log.address,
             token: tokenInfo.id,

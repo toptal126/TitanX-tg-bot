@@ -19,13 +19,14 @@ export interface ITrackChannel {
     pairs: any[];
     logo?: string;
     sellDisabled: boolean;
+    deleteLastPost: boolean;
 }
 
 // 2. Create a Schema corresponding to the document interface.
 const TrackChannelSchema = new Schema<ITrackChannel>(
     {
         channelId: { type: Number, required: true, index: true }, // Channel Id which bot will be included
-        username: { type: String, required: true },
+        username: { type: String },
 
         id: { type: String, index: true }, // token Address
         minted: { type: Number },
@@ -49,6 +50,7 @@ const TrackChannelSchema = new Schema<ITrackChannel>(
         logo: { type: String },
 
         sellDisabled: { type: Boolean, default: false },
+        deleteLastPost: { type: Boolean, default: false },
     },
     { collection: "track_channels", versionKey: false }
 );

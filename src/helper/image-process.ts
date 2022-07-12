@@ -1,3 +1,4 @@
+import { ranksPercentage } from "../constants";
 import { floatConverter } from "./helpers";
 import { BufferStatus } from "./interface";
 const fetch = require("node-fetch");
@@ -12,7 +13,7 @@ let buyStickerBuffer: any;
 let sellStickerBuffer: any;
 
 let ranksBuffer: any[] = Array(7);
-let ranksPercentage = [0.05, 0.1, 0.25, 0.5, 0.75, 1, 2];
+
 const getMetadata = async () => {
     fsExtra.emptyDirSync(`${process.cwd()}/dist/img-output`);
     [

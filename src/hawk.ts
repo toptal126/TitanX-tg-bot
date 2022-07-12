@@ -2,6 +2,7 @@ import { Context, Markup, Telegraf, Telegram } from "telegraf";
 import { Update } from "typegram";
 import {
     extractTokenInfo,
+    floatConverter,
     getLatestCoinPrice,
     getTokenInformation,
     parseTxSwapLog,
@@ -27,7 +28,10 @@ import {
     ADMIN_COMMANDS,
     DEAD_ADDRESS,
     HAWK_HELP,
+    OWL_RANKS,
     PUBLIC_COMMANDS,
+    ranksPercentage,
+    RANKS_EMOTICONS,
     SWAP_TOPIC,
 } from "./constants";
 
@@ -122,18 +126,18 @@ bot.command("quit", (ctx) => {
 });
 
 const delete_command = async (ctx: any, chatId: string) => {
-    const trackingTarget = await TrackToken.findOne({ chatId }).exec();
+    const trackingTarget = await TrackChannel.findOne({
+        channelId: chatId,
+    }).exec();
     if (!trackingTarget) {
-        bot.telegram.sendMessage(
-            chatId,
-            "You don't have any active tracking bot!"
-        );
+        ctx.reply("You don't have any active tracking bot!");
         return;
     }
 
-    await TrackToken.findOneAndDelete({ chatId }).exec();
+    await TrackChannel.findOneAndDelete({ channelId: chatId }).exec();
+    await refetchTrackingTargets();
     ctx.reply(
-        "You bot had removed. You can setup by /setup command any time you want."
+        "😞 Oh no! Tracking has stopped; You can start tracking again with /set_token "
     );
 };
 bot.command("delete", async (ctx) => {
@@ -149,6 +153,70 @@ const count = async (ctx: any) => {
     ctx.reply(`There are ${count1 + count2} groups using TitanX Hawk!`);
 };
 bot.command("count", count);
+
+const price_command = async (ctx: any, chatId: string) => {
+    const trackChannel = await TrackChannel.findOne({ channelId: chatId });
+    if (trackChannel ? !!trackChannel.lastPrice : false)
+        ctx.reply(
+            `Current price is $${floatConverter(trackChannel?.lastPrice || 0)}!`
+        );
+};
+bot.command("price", async (ctx: any) => {
+    const chatId: string = "" + ctx.chat.id;
+    price_command(ctx, chatId);
+});
+
+const ranks_command = async (ctx: any) => {
+    ctx.reply(OWL_RANKS);
+};
+
+bot.command("ranks", ranks_command);
+
+const rank_command = async (ctx: any, chatId: string, message: string) => {
+    try {
+        const trackingTarget = await TrackChannel.findOne({
+            channelId: chatId,
+        }).exec();
+
+        if (!trackingTarget) {
+            ctx.reply("You don't have any active tracking bot!");
+            return;
+        }
+
+        const startId = message.indexOf("0x");
+        let wallet = message.slice(startId, startId + 42);
+        wallet = web3.utils.toChecksumAddress(wallet);
+        const tokenContract = new web3.eth.Contract(
+            ABI_UNISWAP_V2_PAIR,
+            trackingTarget.id
+        );
+        const [minted, balance] = await Promise.all([
+            tokenContract.methods.totalSupply().call(),
+            tokenContract.methods.balanceOf(wallet).call(),
+        ]);
+        console.log(trackingTarget.id, balance, minted);
+
+        let rank: any = 0;
+        ranksPercentage.forEach((percentage, index) => {
+            if ((balance / minted) * 100 > percentage) {
+                rank = index;
+            }
+        });
+        ctx.reply(RANKS_EMOTICONS.at(rank));
+    } catch (error) {
+        ctx.reply(
+            "Invalid wallet address or usage! Ex: /rank 0x0173A37E2211096b5E75c2A3c9d8622304FD9373"
+        );
+        console.error(error);
+        return;
+    }
+};
+
+bot.command("rank", async (ctx: any) => {
+    const chatId: string = "" + ctx.chat.id;
+    const message = ctx.message.text.trim();
+    rank_command(ctx, chatId, message);
+});
 
 const set_token = async (ctx: any, message: string, channelId: number) => {
     let checksumAddress: string = "";
@@ -212,8 +280,11 @@ const set_token = async (ctx: any, message: string, channelId: number) => {
         await refetchTrackingTargets();
         ctx.reply(
             `✨ I've found ${customerTrackChannel.symbol}. If that's right, click next if not, try again.
+
 🔥 Awesome, Now let's set a logo.
+
 Type /set_logo followed by IMAGE_URL.
+
 We recommend 200x200 in .png format.`
         );
     } catch (error) {
@@ -315,6 +386,52 @@ const enablesell = async (ctx: any) => {
 };
 bot.command("enablesell", enablesell);
 
+const deletelast = async (ctx: any) => {
+    try {
+        const channelId: number = ctx.chat.id;
+
+        const trackChannelObj = await TrackChannel.findOne({
+            channelId,
+        }).exec();
+
+        if (!trackChannelObj) {
+            ctx.reply(
+                "You don't have active tracking token, need to set token address via /set_token command first."
+            );
+            return;
+        }
+        trackChannelObj.deleteLastPost = true;
+        await trackChannelObj.save();
+        await refetchTrackingTargets();
+
+        ctx.reply("Last post for token sale will be deleted once get updated!");
+    } catch (error) {}
+};
+bot.command("deletelast", deletelast);
+
+const enablelast = async (ctx: any) => {
+    try {
+        const channelId: number = ctx.chat.id;
+
+        const trackChannelObj = await TrackChannel.findOne({
+            channelId,
+        }).exec();
+
+        if (!trackChannelObj) {
+            ctx.reply(
+                "You don't have active tracking token, need to set token address via /set_token command first."
+            );
+            return;
+        }
+        trackChannelObj.deleteLastPost = false;
+        await trackChannelObj.save();
+        await refetchTrackingTargets();
+
+        ctx.reply("Last post for token sale will be deleted once get updated!");
+    } catch (error) {}
+};
+bot.command("enablelast", enablelast);
+
 bot.on("channel_post", (ctx, next) => {
     const postObj: any = ctx.update.channel_post;
     if (postObj ? postObj.entities : false) {
@@ -342,7 +459,7 @@ const sendSwapMessageToChannel = async (
         );
 
         // return;
-        await bot.telegram.sendPhoto(
+        const result = await bot.telegram.sendPhoto(
             trackChannel.channelId,
             { source: uploadImagePath },
             {
@@ -362,6 +479,21 @@ const sendSwapMessageToChannel = async (
                 },
             }
         );
+
+        if (trackChannel.lastPost && trackChannel.deleteLastPost) {
+            try {
+                await bot.telegram.deleteMessage(
+                    trackChannel.lastPost.chatId,
+                    trackChannel.lastPost.messageId
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        trackChannel.lastPost = {
+            chatId: result.chat.id,
+            messageId: result.message_id,
+        };
     } catch (error) {
         console.error("Telegram Error", error);
     }
@@ -413,6 +545,7 @@ const checkSwapLogs = async () => {
             trackingTargets.map((item) => item.pairs)
         );
 
+        if (!allPairs.length) return;
         const events = await web3.eth.getPastLogs({
             fromBlock: currentBlock ? currentBlock : lastBlock - 5,
             address: allPairs.map((item) => item.address),
