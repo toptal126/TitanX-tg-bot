@@ -56,16 +56,23 @@ export const parseSwapLog = (log: any, tokenInfo: any) => {
 };
 
 export const parseTxSwapLog = (
-    logs: any,
-    tokenInfo: any,
+    logs: any[],
+    trackingTargets: any[],
     coinPrice: number
 ) => {
-    if (!logs || !tokenInfo) return [];
+    if (logs.length === 0) return [];
     return logs.map((log: any) => {
         let side = "";
         let totalUSD = 0;
         let priceUSD = 0;
         let quoteAmount = 0;
+        const tokenInfo = trackingTargets.find((item) => {
+            return !!item.pairs.find(
+                (pair: any) => pair.address === log.address
+            );
+        });
+        console.log(log);
+        return;
         const result = parseSwapLog(log, tokenInfo);
 
         if (tokenInfo.isBUSDPaired === true) {

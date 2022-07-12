@@ -25,3 +25,9 @@ export const OWL_RANKS = `Rank Inforamtion
 0.75% > 0.999% (Shark) 🦈
 1% > 1.999% (Whale) 🐋
 2% > (T-REX) 🦖`;
+
+export const PUBLIC_COMMANDS = ["rank", "ranks", "price", "count"];
+export const ADMIN_COMMANDS = ["set_token", "set_logo"];
+
+export const SWAP_TOPIC =
+    "0xd78ad95fa46c994b6551d0da85fc275fe613ce37657fb8d5e3d130840159d822";

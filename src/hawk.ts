@@ -10,6 +10,7 @@ import {
 } from "./helper/helpers";
 import { connectDB } from "./helper/database-actions";
 import { ITrackToken, TrackToken } from "./helper/models/TrackToken";
+import { ITrackChannel, TrackChannel } from "./helper/models/TrackChannel";
 import {
     ADDING_DONE,
     ADDING_LOGO,
@@ -22,10 +23,18 @@ import {
     TYPING_ADDRESS,
 } from "./helper/interface";
 import { getMeBot } from "./helper/tg-api";
-import { HAWK_HELP } from "./constants";
+import {
+    ADMIN_COMMANDS,
+    HAWK_HELP,
+    PUBLIC_COMMANDS,
+    SWAP_TOPIC,
+} from "./constants";
+import { unlinkImage, url2CacheImage } from "./helper/image-process";
+import ABI_UNISWAP_V2_PAIR from "./abis/ABI_UNISWAP_V2_PAIR.json";
 
 const Web3 = require("web3");
 const web3 = new Web3("https://bsc-dataseed3.binance.org/");
+const commandParts = require("telegraf-command-parts");
 
 require("dotenv").config();
 
@@ -47,6 +56,47 @@ const getCustomerStatus = (chatId: string) => {
         customerStatus[chatId] = { status: NONE_ACTION };
     return customerStatus[chatId].status;
 };
+
+const adminFilterMiddleWare = () => async (ctx: any, next: any) => {
+    const message = ctx.update.message?.text;
+    const chatId = ctx.chat.id;
+    const userId = ctx.from.id;
+
+    if (!message) return;
+    // Continue if the chat is Private
+    if (ctx.chat.type === "private") {
+        // Ignore if they wrote admin commands
+        let isAdminCommand = false;
+        ADMIN_COMMANDS.forEach((command) => {
+            if (message.includes(`/${command}`)) isAdminCommand = true;
+        });
+        if (isAdminCommand) {
+            ctx.reply("You can't command bot via DM.");
+            return;
+        }
+
+        return next();
+    }
+
+    const administrators = await bot.telegram.getChatAdministrators(chatId);
+
+    // Ignore if the bot is not an administrator
+    if (!administrators.find((item) => item.user.id === bot.botInfo?.id))
+        return;
+
+    let isPublicCommand = false;
+    PUBLIC_COMMANDS.forEach((command) => {
+        if (message.includes(`/${command}`)) isPublicCommand = true;
+    });
+    // Ignore if the message sender is not an administrator
+    if (
+        !isPublicCommand &&
+        !administrators.find((item) => item.user.id === userId)
+    )
+        return;
+    return next();
+};
+bot.use(adminFilterMiddleWare());
 
 bot.start((ctx) => {
     ctx.reply(`Hello!!!  ${ctx.from.first_name}
@@ -107,134 +157,198 @@ bot.command("delete", async (ctx) => {
 });
 
 bot.command("count", async (ctx) => {
-    const count = await TrackToken.countDocuments();
-    ctx.reply(`There are ${count} groups using TitanX Hawk!`);
+    const [count1, count2] = await Promise.all([
+        TrackChannel.countDocuments(),
+        TrackToken.countDocuments(),
+    ]);
+    ctx.reply(`There are ${count1 + count2} groups using TitanX Hawk!`);
 });
-bot.action("selectDeleteTrackingBot", async (ctx: any) => {
-    const chatId: string = "" + ctx.chat.id;
-    await TrackToken.findOneAndDelete({ chatId }).exec();
-    bot.telegram.sendMessage(
-        chatId,
-        "You bot had removed. You can setup by /setup command any time you want."
-    );
-});
-
-bot.on("text", async (ctx: any) => {
-    const chatId: string = ctx.chat.id;
-    const replyText: string = ctx.message.text.trim();
-
-    if (getCustomerStatus(chatId) == HAWK_SETUP) {
-        const dataArr = replyText.split("\n").map((item) => item.trim());
-        if (
-            replyText === "" ||
-            dataArr.length !== 2 ||
-            dataArr.find((item) => item == "")
-        ) {
-            bot.telegram.sendMessage(chatId, "Invalid Information, try again!");
-            return;
-        }
-        const getMe = await getMeBot(dataArr[0]);
-
-        let channelId;
-        if (!getMe?.ok) {
-            bot.telegram.sendMessage(chatId, "Invalid bot token, try again!");
-            return;
+bot.command("set_token", async (ctx) => {
+    let checksumAddress: string = "";
+    const channelId: number = ctx.chat.id;
+    const message: string = ctx.message.text.trim();
+    const startId = message.indexOf("0x");
+    const token_address = message.slice(startId, startId + 42);
+    try {
+        checksumAddress = web3.utils.toChecksumAddress(token_address);
+        ctx.reply("⌛ Loading token information...");
+        const [pairs, tokenInfo, existingBot] = await Promise.all([
+            searchPairsByTokenAddress(checksumAddress),
+            getTokenInformation(checksumAddress),
+            TrackChannel.findOne({ channelId }).exec(),
+        ]);
+        delete tokenInfo.pair;
+        if (existingBot) {
+            if (existingBot.id === checksumAddress) {
+                ctx.reply(
+                    "This token is already being tracked by you, try with another address"
+                );
+                return;
+            }
+            unlinkImage(existingBot.logo || "");
         }
 
-        try {
-            const chat = await bot.telegram.getChat(dataArr[1]);
-            channelId = chat.id;
-        } catch (error) {
-            console.log(error);
-            bot.telegram.sendMessage(chatId, "Invalid Channel ID, try again!");
-            return;
-        }
-        let guideMessage = `Hiya, we remember your inforamtion!!!\nYou can start right now!!`;
-        const customerTrackToken = new TrackToken({
-            botToken: dataArr[0],
+        const customerTrackChannel = {
             channelId,
-            chatId,
-            userId: ctx.from.id,
             username: ctx.from.username,
-            bot_name: getMe.result.first_name,
-            bot_username: getMe.result.username,
-        });
-        await TrackToken.findOneAndUpdate(
+            name:
+                pairs[0].token0 === checksumAddress
+                    ? pairs[0].token0Name
+                    : pairs[0].token1Name,
+            symbol:
+                pairs[0].token0 === checksumAddress
+                    ? pairs[0].token0Symbol
+                    : pairs[0].token1Symbol,
+            ...tokenInfo,
+            pairs: pairs.map((item: any) => {
+                return {
+                    address: item.pairAddress,
+                    token0: item.token0,
+                    token1: item.token1,
+                };
+            }),
+            logo: "",
+        };
+
+        await TrackChannel.findOneAndUpdate(
             {
-                chatId,
+                channelId,
             },
-            customerTrackToken,
+            customerTrackChannel,
             {
                 upsert: true,
             }
         );
-        bot.telegram.sendMessage(chatId, guideMessage, {
-            reply_markup: {
-                inline_keyboard: [
-                    [
-                        {
-                            text: `💨 Yes, Start Using ${getMe.result.first_name}!`,
-                            url: `https://t.me/${getMe.result.username}`,
-                        },
-                    ],
-                ],
-            },
-        });
-        restartPM2();
-    }
 
-    if (getCustomerStatus(chatId) == SEARCHING_TOKEN) {
-        let queryResults = await queryTokens(replyText);
-        // @ts-ignore
-        let result: { [key: string]: any } = [];
-        queryResults.forEach((pair: Pair) => {
-            if (
-                pair.token0.toLowerCase().includes(replyText.toLowerCase()) ||
-                pair.token0Name
-                    .toLowerCase()
-                    .includes(replyText.toLowerCase()) ||
-                pair.token0Symbol
-                    .toLowerCase()
-                    .includes(replyText.toLowerCase())
-            )
-                result[pair.token0] = {
-                    name: pair.token0Name,
-                    symbol: pair.token0Symbol,
-                };
-            if (
-                pair.token1.toLowerCase().includes(replyText.toLowerCase()) ||
-                pair.token1Name
-                    .toLowerCase()
-                    .includes(replyText.toLowerCase()) ||
-                pair.token1Symbol
-                    .toLowerCase()
-                    .includes(replyText.toLowerCase())
-            )
-                result[pair.token1] = {
-                    name: pair.token1Name,
-                    symbol: pair.token1Symbol,
-                };
-        });
-        let response = "";
-        for (let tokenAddress in result) {
-            let temp = `${response} ${result[tokenAddress].symbol}(${result[tokenAddress].name}) ${tokenAddress}`;
-            if (temp.length > 4000) break;
-            response = temp;
+        ctx.reply(
+            `Started tracking ${customerTrackChannel.name}(${customerTrackChannel.symbol})
+Address: ${checksumAddress}.
+You can command /set_logo [IMAGE_URL] to show custom logo for each posting.`
+        );
+        fetchTrackingTargets();
+    } catch (error) {
+        ctx.reply("This address is invalid!");
+        console.log(error);
+        return;
+    }
+});
+
+bot.command("set_logo", async (ctx) => {
+    try {
+        const message: string = ctx.message.text.trim();
+        const parsedUrl: string = message.split(" ").at(-1) || "";
+        const channelId: number = ctx.chat.id;
+
+        const trackChannelObj = await TrackChannel.findOne({
+            channelId,
+        }).exec();
+
+        if (!trackChannelObj) {
+            ctx.reply(
+                "You don't have active tracking token, need to set token address via /set_token command first."
+            );
+            return;
         }
-        bot.telegram.sendMessage(chatId, response);
+
+        const cachedLogoPath = await url2CacheImage(
+            parsedUrl,
+            trackChannelObj?.id
+        );
+        if (trackChannelObj.logo) unlinkImage(trackChannelObj.logo);
+        trackChannelObj.logo = cachedLogoPath;
+        await trackChannelObj.save();
+        ctx.reply(cachedLogoPath);
+    } catch (error) {
+        ctx.reply("Invalid image path or image format!");
+        console.log(error);
     }
 });
 
 bot.launch();
 
-const restartPM2 = () => {
-    const { exec } = require("child_process");
-    exec("pm2 restart all");
+let trackingTargets: ITrackChannel[];
+const fetchTrackingTargets = async () => {
+    trackingTargets = await TrackChannel.find({}).exec();
+};
+
+let currentBlock = 0;
+const checkSwapLogs = async () => {
+    try {
+        const [lastBlock, coinPrice] = await Promise.all([
+            web3.eth.getBlockNumber(),
+            getLatestCoinPrice(),
+        ]);
+        console.log(currentBlock, lastBlock, "lastBlock", coinPrice);
+
+        const tokenContracts = trackingTargets.map((item) => {
+            return new web3.eth.Contract(ABI_UNISWAP_V2_PAIR, item.id);
+        });
+
+        const allPairs: any[] = [].concat.apply(
+            [],
+            //@ts-ignore
+            trackingTargets.map((item) => item.pairs)
+        );
+
+        const events = await web3.eth.getPastLogs({
+            fromBlock: currentBlock ? currentBlock : lastBlock - 5,
+            address: allPairs.map((item) => item.address),
+            topics: [SWAP_TOPIC],
+        });
+        console.log("allPairs", allPairs.length);
+        console.log("events", events.length);
+        const txs = await Promise.all(
+            events.map((event: any) => {
+                return web3.eth.getTransaction(event.transactionHash);
+            })
+        );
+        txs.forEach((tx, index) => {
+            events[index].origin = tx.from;
+        });
+        const parsedTxLogs: any[] = parseTxSwapLog(
+            events.reverse(),
+            trackingTargets,
+            coinPrice
+        );
+        console.log("parsedTxLogs", parsedTxLogs);
+        /*
+        parsedTxLogs
+            .filter((log) => {
+                return (
+                    log.totalUSD > 10 &&
+                    (!titanXOwl.sellDisabled || log.side != "SELL")
+                );
+            })
+            // .slice(0, 1)
+            .forEach(async (log: any) => {
+                try {
+                    log.buyerBalance =
+                        (await tokenContract.methods
+                            .balanceOf(log.buyer)
+                            .call()) /
+                        10 ** titanXOwl.decimals;
+                    await sendSwapMessageToChannel(
+                        log,
+                        (minted - dead_amount) / 10 ** titanXOwl.decimals,
+                        titanXOwl
+                    );
+                } catch (error) {
+                    console.error(error);
+                }
+            });
+            */
+        currentBlock = lastBlock + 1;
+    } catch (error) {
+        console.log(error);
+    }
 };
 
 const startTitanXHawk = async () => {
-    // const chat = await bot.telegram.getChat("@TitanXTestingBot");
-    // console.log(chat);
+    await fetchTrackingTargets();
+
+    setInterval(() => {
+        checkSwapLogs();
+    }, 5000);
 };
 connectDB();
 startTitanXHawk();

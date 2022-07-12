@@ -247,4 +247,19 @@ const manipulateImage = async (
     return outputPath;
 };
 
+export const url2CacheImage = async (url: string, address: string = "") => {
+    const fimg = await fetch(url);
+    const logoBuffer = await fimg.buffer();
+
+    const outputPath = `${process.cwd()}/dist/logo-cached/${address}-${new Date().getTime()}.png`;
+
+    await sharp(logoBuffer).resize({ width: 152 }).toFile(outputPath);
+    return outputPath;
+};
+export const unlinkImage = (url: string) => {
+    fs.unlink(url, (error: any) => {
+        if (error) console.log(error);
+    });
+};
+
 export { getMetadata, manipulateImage };

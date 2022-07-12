@@ -1,10 +1,9 @@
 import { Schema, model } from "mongoose";
 
 // 1. Create an interface representing a document in MongoDB.
-export interface ITrackToken {
-    botToken: string; // Bot Token
+export interface ITrackChannel {
     channelId: number; // Channel Id which bot will be included
-    username: string; // register user Id
+    username: string; // register user name
 
     id: string;
     minted: number;
@@ -13,19 +12,16 @@ export interface ITrackToken {
     symbol: string;
     decimals: number;
 
-    logo?: string;
-
     isToken1BNB: { type: Boolean };
     isToken1BUSD: { type: Boolean };
     isBUSDPaired: { type: Boolean };
-
     pairs: any[];
+    logo?: string;
 }
 
 // 2. Create a Schema corresponding to the document interface.
-const trackTokenSchema = new Schema<ITrackToken>(
+const TrackChannelSchema = new Schema<ITrackChannel>(
     {
-        botToken: { type: String, required: true, index: true }, // Bot Token
         channelId: { type: Number, required: true, index: true }, // Channel Id which bot will be included
         username: { type: String, required: true },
 
@@ -35,8 +31,6 @@ const trackTokenSchema = new Schema<ITrackToken>(
         name: { type: String },
         symbol: { type: String },
         decimals: { type: Number },
-
-        logo: { type: String },
 
         isToken1BNB: { type: Boolean },
         isToken1BUSD: { type: Boolean },
@@ -49,9 +43,13 @@ const trackTokenSchema = new Schema<ITrackToken>(
                 token1: { type: String },
             },
         ],
+        logo: { type: String },
     },
-    { collection: "track_tokens", versionKey: false }
+    { collection: "track_channels", versionKey: false }
 );
 
 // 3. Create a Model.
-export const TrackToken = model<ITrackToken>("TrackToken", trackTokenSchema);
+export const TrackChannel = model<ITrackChannel>(
+    "TrackChannel",
+    TrackChannelSchema
+);

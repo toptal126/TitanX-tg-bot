@@ -6,7 +6,7 @@
     "scripts": {
         "build": "tsc",
         "start": "node dist/hawk.js",
-        "dev": "nodemon src/hawk.ts & nodemon src/owls.ts",
+        "dev": "nodemon src/hawk.ts",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "repository": {
@@ -43,6 +43,7 @@
         "mongoose": "^6.4.2",
         "node-fetch": "^2.6.7",
         "sharp": "^0.30.7",
+        "telegraf-command-parts": "^1.0.3",
         "web3": "^1.7.4"
     }
 }
