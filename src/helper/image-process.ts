@@ -167,10 +167,10 @@ const manipulateImage = async (
         }
     });
 
+    if (!bufferArray[pairInfo.id]) {
+        bufferArray[pairInfo.id] = { status: false, buffer: null };
+    }
     if (!!pairInfo.logo) {
-        if (!bufferArray[pairInfo.id]) {
-            bufferArray[pairInfo.id] = { status: false, buffer: null };
-        }
         if (bufferArray[pairInfo.id].status !== true) {
             try {
                 const fimg = await fetch(pairInfo.logo);
@@ -184,7 +184,7 @@ const manipulateImage = async (
             }
         }
     }
-    if (bufferArray[pairInfo.id].status == true) {
+    if (bufferArray[pairInfo.id]?.status == true) {
         await bannerSharp
             .composite([
                 {
@@ -226,7 +226,7 @@ const manipulateImage = async (
                             ? sellStickerBuffer
                             : buyStickerBuffer,
                     top: 80,
-                    left: 270,
+                    left: 700,
                 },
                 {
                     input: ranksBuffer[rank],

@@ -124,7 +124,6 @@ bot.on("text", async (ctx: any) => {
     const replyText: string = ctx.message.text.trim();
 
     if (getCustomerStatus(chatId) == HAWK_SETUP) {
-        ctx.deleteMessage();
         const dataArr = replyText.split("\n").map((item) => item.trim());
         if (
             replyText === "" ||
@@ -135,21 +134,32 @@ bot.on("text", async (ctx: any) => {
             return;
         }
         const getMe = await getMeBot(dataArr[0]);
+
+        let channelId;
         if (!getMe?.ok) {
             bot.telegram.sendMessage(chatId, "Invalid bot token, try again!");
+            return;
+        }
+
+        try {
+            const chat = await bot.telegram.getChat(dataArr[1]);
+            channelId = chat.id;
+        } catch (error) {
+            console.log(error);
+            bot.telegram.sendMessage(chatId, "Invalid Channel ID, try again!");
             return;
         }
         let guideMessage = `Hiya, we remember your inforamtion!!!\nYou can start right now!!`;
         const customerTrackToken = new TrackToken({
             botToken: dataArr[0],
-            channelId: `-100${dataArr[1]}`,
+            channelId,
             chatId,
             userId: ctx.from.id,
             username: ctx.from.username,
             bot_name: getMe.result.first_name,
             bot_username: getMe.result.username,
         });
-        TrackToken.findOneAndUpdate(
+        await TrackToken.findOneAndUpdate(
             {
                 chatId,
             },
@@ -170,6 +180,7 @@ bot.on("text", async (ctx: any) => {
                 ],
             },
         });
+        restartPM2();
     }
 
     if (getCustomerStatus(chatId) == SEARCHING_TOKEN) {
@@ -216,7 +227,15 @@ bot.on("text", async (ctx: any) => {
 
 bot.launch();
 
-const startTitanXHawk = async () => {};
+const restartPM2 = () => {
+    const { exec } = require("child_process");
+    exec("pm2 restart all");
+};
+
+const startTitanXHawk = async () => {
+    // const chat = await bot.telegram.getChat("@TitanXTestingBot");
+    // console.log(chat);
+};
 connectDB();
 startTitanXHawk();
 

@@ -443,6 +443,7 @@ Hit /help to checkout details.`;
             cur_supply,
             pairInfo
         );
+        // return;
         await bot.telegram.sendPhoto(
             CHANNEL_ID,
             { source: uploadImagePath },
@@ -472,6 +473,7 @@ Hit /help to checkout details.`;
 
     let currentBlock = 0;
     const checkSwapLogs = async () => {
+        if (!titanXOwl.pair) return;
         try {
             const [lastBlock, coinPrice] = await Promise.all([
                 web3.eth.getBlockNumber(),
@@ -518,7 +520,7 @@ Hit /help to checkout details.`;
                         (!titanXOwl.sellDisabled || log.side != "SELL")
                     );
                 })
-                .slice(0, 1)
+                // .slice(0, 1)
                 .forEach(async (log: any) => {
                     try {
                         log.buyerBalance =
