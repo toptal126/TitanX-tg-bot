@@ -1,9 +1,8 @@
 export const DEAD_ADDRESS = "0x000000000000000000000000000000000000dEaD";
 
-export const HAWK_HELP = `/start - Provides a greeting message and instructions for the next steps
-/setup - Will Will lead you to setup new TitanXOWL integrated in your channel.
-/delete - Delete your tracking BOT.
-/count - Will return how many groups are using OWL.`;
+export const HAWK_HELP = `😊 Great, you found me; now, let's pair me with your token address.
+Type /set_token followed by your token address.
+For example, /set_token 0x000000`;
 
 export const OWL_HELP = `/start - Provides a greeting message and instructions for the next steps
 /add - Will provide 2 options. Address – Enter the token address you want Owl to provide updates for. Search – To find a token address on BSC.

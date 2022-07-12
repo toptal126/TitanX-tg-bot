@@ -25,11 +25,18 @@ import {
 import { getMeBot } from "./helper/tg-api";
 import {
     ADMIN_COMMANDS,
+    DEAD_ADDRESS,
     HAWK_HELP,
     PUBLIC_COMMANDS,
     SWAP_TOPIC,
 } from "./constants";
-import { unlinkImage, url2CacheImage } from "./helper/image-process";
+
+import {
+    getMetadata,
+    manipulateImage,
+    unlinkImage,
+    url2CacheImage,
+} from "./helper/image-process";
 import ABI_UNISWAP_V2_PAIR from "./abis/ABI_UNISWAP_V2_PAIR.json";
 
 const Web3 = require("web3");
@@ -185,7 +192,10 @@ bot.command("set_token", async (ctx) => {
                 );
                 return;
             }
-            unlinkImage(existingBot.logo || "");
+
+            setTimeout(() => {
+                unlinkImage(existingBot.logo || "");
+            }, 10000);
         }
 
         const customerTrackChannel = {
@@ -209,6 +219,7 @@ bot.command("set_token", async (ctx) => {
             }),
             logo: "",
         };
+        console.log("customerTrackChannel", customerTrackChannel);
 
         await TrackChannel.findOneAndUpdate(
             {
@@ -220,12 +231,13 @@ bot.command("set_token", async (ctx) => {
             }
         );
 
+        await refetchTrackingTargets();
         ctx.reply(
-            `Started tracking ${customerTrackChannel.name}(${customerTrackChannel.symbol})
-Address: ${checksumAddress}.
-You can command /set_logo [IMAGE_URL] to show custom logo for each posting.`
+            `✨ I've found ${customerTrackChannel.symbol}. If that's right, click next if not, try again.
+🔥 Awesome, Now let's set a logo.
+Type /set_logo followed by IMAGE_URL.
+We recommend 200x200 in .png format.`
         );
-        fetchTrackingTargets();
     } catch (error) {
         ctx.reply("This address is invalid!");
         console.log(error);
@@ -254,21 +266,113 @@ bot.command("set_logo", async (ctx) => {
             parsedUrl,
             trackChannelObj?.id
         );
-        if (trackChannelObj.logo) unlinkImage(trackChannelObj.logo);
+        if (trackChannelObj.logo) {
+            const oldPath = trackChannelObj.logo;
+            setTimeout(() => {
+                unlinkImage(oldPath || "");
+            }, 10000);
+        }
         trackChannelObj.logo = cachedLogoPath;
         await trackChannelObj.save();
-        ctx.reply(cachedLogoPath);
+        await refetchTrackingTargets();
+        ctx.reply(`Great, that worked; you're all set.
+🙏 Help me grow by recommended me to friends.`);
     } catch (error) {
         ctx.reply("Invalid image path or image format!");
         console.log(error);
     }
 });
 
+bot.command("disablesell", async (ctx) => {
+    try {
+        const channelId: number = ctx.chat.id;
+
+        const trackChannelObj = await TrackChannel.findOne({
+            channelId,
+        }).exec();
+
+        if (!trackChannelObj) {
+            ctx.reply(
+                "You don't have active tracking token, need to set token address via /set_token command first."
+            );
+            return;
+        }
+        trackChannelObj.sellDisabled = true;
+        await trackChannelObj.save();
+        await refetchTrackingTargets();
+
+        ctx.reply("Alert for token sale is disabled!");
+    } catch (error) {}
+});
+bot.command("enablesell", async (ctx) => {
+    try {
+        const channelId: number = ctx.chat.id;
+
+        const trackChannelObj = await TrackChannel.findOne({
+            channelId,
+        }).exec();
+
+        if (!trackChannelObj) {
+            ctx.reply(
+                "You don't have active tracking token, need to set token address via /set_token command first."
+            );
+            return;
+        }
+        trackChannelObj.sellDisabled = false;
+        await trackChannelObj.save();
+        await refetchTrackingTargets();
+
+        ctx.reply("Alert for token sale is enabled!");
+    } catch (error) {}
+});
 bot.launch();
 
-let trackingTargets: ITrackChannel[];
+const sendSwapMessageToChannel = async (
+    log: any,
+    cur_supply: number,
+    trackChannel: any
+) => {
+    // lastLog = log;
+    const uploadImagePath = await manipulateImage(
+        log,
+        cur_supply,
+        trackChannel
+    );
+
+    await bot.telegram.sendPhoto(
+        trackChannel.channelId,
+        { source: uploadImagePath },
+        {
+            reply_markup: {
+                inline_keyboard: [
+                    [
+                        {
+                            text: "🧾 Transaction",
+                            url: log.transactionHash,
+                        },
+                        {
+                            text: "📊 Chart / Swap",
+                            url: `https://titanx.org/dashboard/defi-exchange/${trackChannel.id}?chain=bsc`,
+                        },
+                    ],
+                ],
+            },
+        }
+    );
+    // bot.telegram.sendAnimation()
+};
+
+let trackingTargets: any[];
+let checkintIntervalId: any;
 const fetchTrackingTargets = async () => {
     trackingTargets = await TrackChannel.find({}).exec();
+};
+const refetchTrackingTargets = async () => {
+    clearInterval(checkintIntervalId);
+    trackingTargets = await TrackChannel.find({}).exec();
+    checkintIntervalId = setInterval(() => {
+        checkSwapLogs();
+    }, 5000);
 };
 
 let currentBlock = 0;
@@ -284,6 +388,19 @@ const checkSwapLogs = async () => {
             return new web3.eth.Contract(ABI_UNISWAP_V2_PAIR, item.id);
         });
 
+        const [minteds, dead_amounts] = await Promise.all([
+            Promise.all(
+                tokenContracts.map((tokenContract) =>
+                    tokenContract.methods.totalSupply().call()
+                )
+            ),
+            Promise.all(
+                tokenContracts.map((tokenContract) =>
+                    tokenContract.methods.balanceOf(DEAD_ADDRESS).call()
+                )
+            ),
+        ]);
+
         const allPairs: any[] = [].concat.apply(
             [],
             //@ts-ignore
@@ -295,8 +412,8 @@ const checkSwapLogs = async () => {
             address: allPairs.map((item) => item.address),
             topics: [SWAP_TOPIC],
         });
-        console.log("allPairs", allPairs.length);
-        console.log("events", events.length);
+        // console.log("allPairs", allPairs.length);
+        // console.log("events", events.length);
         const txs = await Promise.all(
             events.map((event: any) => {
                 return web3.eth.getTransaction(event.transactionHash);
@@ -309,34 +426,61 @@ const checkSwapLogs = async () => {
             events.reverse(),
             trackingTargets,
             coinPrice
-        );
-        console.log("parsedTxLogs", parsedTxLogs);
-        /*
-        parsedTxLogs
-            .filter((log) => {
-                return (
-                    log.totalUSD > 10 &&
-                    (!titanXOwl.sellDisabled || log.side != "SELL")
+        ).filter((log) => (log.totalUSD || 0) > 10);
+
+        // console.log("parsedTxLogs", parsedTxLogs);
+
+        trackingTargets.forEach(async (trackChannel, index) => {
+            trackChannel.save();
+            const requiredEvents = parsedTxLogs.filter(
+                (log) => log.token === trackChannel.id
+            );
+            requiredEvents.forEach(async (log) => {
+                if (trackChannel.sellDisabled && log.side === "SELL") return;
+                log.buyerBalance =
+                    (await tokenContracts[index].methods
+                        .balanceOf(log.buyer)
+                        .call()) /
+                    10 ** trackChannel.decimals;
+                await sendSwapMessageToChannel(
+                    log,
+                    (minteds[index] - dead_amounts[index]) /
+                        10 ** trackChannel.decimals,
+                    trackChannel
                 );
-            })
-            // .slice(0, 1)
-            .forEach(async (log: any) => {
-                try {
-                    log.buyerBalance =
-                        (await tokenContract.methods
-                            .balanceOf(log.buyer)
-                            .call()) /
-                        10 ** titanXOwl.decimals;
-                    await sendSwapMessageToChannel(
-                        log,
-                        (minted - dead_amount) / 10 ** titanXOwl.decimals,
-                        titanXOwl
-                    );
-                } catch (error) {
-                    console.error(error);
-                }
             });
-            */
+        });
+
+        // parsedTxLogs
+        //     .filter((log) => {
+        //         const tokenInfo = trackingTargets.find((item) => {
+        //             return !!item.pairs.find(
+        //                 (pair: any) => pair.address === log.dexPair
+        //             );
+        //         });
+        //         return (
+        //             log.totalUSD > 10 &&
+        //             (!tokenInfo.sellDisabled || log.side != "SELL")
+        //         );
+        //     })
+        //     .slice(0, 1)
+        //     .forEach(async (log: any) => {
+        //         try {
+        //             log.buyerBalance =
+        //                 (await tokenContracts.find().methods
+        //                     .balanceOf(log.buyer)
+        //                     .call()) /
+        //                 10 ** titanXOwl.decimals;
+        //             await sendSwapMessageToChannel(
+        //                 log,
+        //                 (minted - dead_amount) / 10 ** titanXOwl.decimals,
+        //                 titanXOwl
+        //             );
+        //         } catch (error) {
+        //             console.error(error);
+        //         }
+        //     });
+
         currentBlock = lastBlock + 1;
     } catch (error) {
         console.log(error);
@@ -344,13 +488,16 @@ const checkSwapLogs = async () => {
 };
 
 const startTitanXHawk = async () => {
-    await fetchTrackingTargets();
-
-    setInterval(() => {
+    await connectDB();
+    await Promise.all([fetchTrackingTargets(), getMetadata()]);
+    startSwapInterval();
+};
+const startSwapInterval = () => {
+    if (checkintIntervalId) clearInterval(checkintIntervalId);
+    checkintIntervalId = setInterval(() => {
         checkSwapLogs();
     }, 5000);
 };
-connectDB();
 startTitanXHawk();
 
 // Enable graceful stop

@@ -11,12 +11,14 @@ export interface ITrackChannel {
     name: string;
     symbol: string;
     decimals: number;
+    lastPrice: number;
 
-    isToken1BNB: { type: Boolean };
-    isToken1BUSD: { type: Boolean };
-    isBUSDPaired: { type: Boolean };
+    isToken1BNB: boolean;
+    isToken1BUSD: boolean;
+    isBUSDPaired: boolean;
     pairs: any[];
     logo?: string;
+    sellDisabled: boolean;
 }
 
 // 2. Create a Schema corresponding to the document interface.
@@ -31,6 +33,7 @@ const TrackChannelSchema = new Schema<ITrackChannel>(
         name: { type: String },
         symbol: { type: String },
         decimals: { type: Number },
+        lastPrice: { type: Number, default: 0 },
 
         isToken1BNB: { type: Boolean },
         isToken1BUSD: { type: Boolean },
@@ -44,6 +47,8 @@ const TrackChannelSchema = new Schema<ITrackChannel>(
             },
         ],
         logo: { type: String },
+
+        sellDisabled: { type: Boolean, default: false },
     },
     { collection: "track_channels", versionKey: false }
 );

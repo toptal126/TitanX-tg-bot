@@ -13,8 +13,6 @@ let sellStickerBuffer: any;
 
 let ranksBuffer: any[] = Array(7);
 let ranksPercentage = [0.05, 0.1, 0.25, 0.5, 0.75, 1, 2];
-// @ts-ignore
-let bufferArray: { [key: string]: BufferStatus } = [];
 const getMetadata = async () => {
     fsExtra.emptyDirSync(`${process.cwd()}/dist/img-output`);
     [
@@ -167,24 +165,7 @@ const manipulateImage = async (
         }
     });
 
-    if (!bufferArray[pairInfo.id]) {
-        bufferArray[pairInfo.id] = { status: false, buffer: null };
-    }
     if (!!pairInfo.logo) {
-        if (bufferArray[pairInfo.id].status !== true) {
-            try {
-                const fimg = await fetch(pairInfo.logo);
-                const logoBuffer = await fimg.buffer();
-                bufferArray[pairInfo.id].status = true;
-                bufferArray[pairInfo.id].buffer = await sharp(logoBuffer)
-                    .resize({ width: 152 })
-                    .toBuffer();
-            } catch (error) {
-                console.error(error);
-            }
-        }
-    }
-    if (bufferArray[pairInfo.id]?.status == true) {
         await bannerSharp
             .composite([
                 {
@@ -201,7 +182,7 @@ const manipulateImage = async (
                     left: 700,
                 },
                 {
-                    input: bufferArray[pairInfo.id].buffer,
+                    input: pairInfo.logo,
                     top: 20,
                     left: 20,
                 },

@@ -3,23 +3,20 @@ import { Pair, ParsedTokenFromPair, TokenInfo } from "./interface";
 const axios = require("axios");
 
 export const API_ENDPOINT = "https://data.titanx.org";
-
 export const getApiUrl = (uri: string) => `${API_ENDPOINT}${uri}`;
 
-export const parseSwapLog = (log: any, tokenInfo: any) => {
-    if (tokenInfo === undefined) {
-        return {
-            amount0:
-                parseFloat(log.returnValues.amount0In) +
-                parseFloat(log.returnValues.amount0Out),
-            amount1:
-                parseFloat(log.returnValues.amount1In) +
-                parseFloat(log.returnValues.amount1Out),
-            price:
-                (parseFloat(log.returnValues.amount1In) +
-                    parseFloat(log.returnValues.amount1Out)) /
-                (parseFloat(log.returnValues.amount0In) +
-                    parseFloat(log.returnValues.amount0Out)),
+export const parseSwapLog = (log: any, tokenInfo: any, pairAddress: string) => {
+    const basicPair = tokenInfo.pairs[0];
+    const pair = tokenInfo.pairs.find(
+        (item: any) => item.address === pairAddress
+    );
+
+    if (!log.returnValues) {
+        log.returnValues = {
+            amount0In: parseInt("0x" + log.data.slice(2, 66)),
+            amount0Out: parseInt("0x" + log.data.slice(130, 194)),
+            amount1In: parseInt("0x" + log.data.slice(66, 130)),
+            amount1Out: parseInt("0x" + log.data.slice(194)),
         };
     }
     const result = {
@@ -29,28 +26,29 @@ export const parseSwapLog = (log: any, tokenInfo: any) => {
         amount1:
             parseFloat(log.returnValues.amount1In) +
             parseFloat(log.returnValues.amount1Out),
-        price:
-            (parseFloat(log.returnValues.amount1In) +
-                parseFloat(log.returnValues.amount1Out)) /
-            (parseFloat(log.returnValues.amount0In) +
-                parseFloat(log.returnValues.amount0Out)),
     };
-    if (tokenInfo.isBUSDPaired === true) {
-        if (tokenInfo.isToken1BUSD === true) {
-            result.amount0 = result.amount0 / 10 ** tokenInfo.decimals;
-            result.amount1 = result.amount1 / 10 ** 18; //WBNB - decimals
+    if (basicPair.address == pairAddress)
+        if (tokenInfo.isBUSDPaired === true) {
+            if (tokenInfo.isToken1BUSD === true) {
+                result.amount0 = result.amount0 / 10 ** tokenInfo.decimals;
+                result.amount1 = result.amount1 / 10 ** 18; //WBNB - decimals
+            } else {
+                result.amount0 = result.amount0 / 10 ** 18; //WBNB - decimals
+                result.amount1 = result.amount1 / 10 ** tokenInfo.decimals;
+            }
         } else {
-            result.amount0 = result.amount0 / 10 ** 18; //WBNB - decimals
-            result.amount1 = result.amount1 / 10 ** tokenInfo.decimals;
+            if (tokenInfo.isToken1BNB === true) {
+                result.amount0 = result.amount0 / 10 ** tokenInfo.decimals;
+                result.amount1 = result.amount1 / 10 ** 18; //WBNB - decimals
+            } else {
+                result.amount0 = result.amount0 / 10 ** 18; //WBNB - decimals
+                result.amount1 = result.amount1 / 10 ** tokenInfo.decimals;
+            }
         }
-    } else {
-        if (tokenInfo.isToken1BNB === true) {
-            result.amount0 = result.amount0 / 10 ** tokenInfo.decimals;
-            result.amount1 = result.amount1 / 10 ** 18; //WBNB - decimals
-        } else {
-            result.amount0 = result.amount0 / 10 ** 18; //WBNB - decimals
-            result.amount1 = result.amount1 / 10 ** tokenInfo.decimals;
-        }
+    else {
+        tokenInfo.id === pair.token0
+            ? (result.amount0 = result.amount0 / 10 ** tokenInfo.decimals)
+            : (result.amount1 = result.amount1 / 10 ** tokenInfo.decimals);
     }
     return result;
 };
@@ -66,47 +64,69 @@ export const parseTxSwapLog = (
         let totalUSD = 0;
         let priceUSD = 0;
         let quoteAmount = 0;
+
         const tokenInfo = trackingTargets.find((item) => {
             return !!item.pairs.find(
                 (pair: any) => pair.address === log.address
             );
         });
-        console.log(log);
-        return;
-        const result = parseSwapLog(log, tokenInfo);
+        const pair = tokenInfo.pairs.find(
+            (pair: any) => pair.address === log.address
+        );
+        const result = parseSwapLog(log, tokenInfo, log.address);
 
-        if (tokenInfo.isBUSDPaired === true) {
-            if (tokenInfo.isToken1BUSD === true) {
-                totalUSD = result.amount1;
-                priceUSD = totalUSD / result.amount0;
-                quoteAmount = result.amount0;
-                log.returnValues.amount0In > 0
-                    ? (side = "SELL")
-                    : (side = "BUY");
+        // if this is pair[0]'s swap log
+        if (tokenInfo.pairs[0].address === log.address) {
+            if (tokenInfo.isBUSDPaired === true) {
+                if (tokenInfo.isToken1BUSD === true) {
+                    totalUSD = result.amount1;
+                    priceUSD = totalUSD / result.amount0;
+                    quoteAmount = result.amount0;
+                    log.returnValues.amount0In > 0
+                        ? (side = "SELL")
+                        : (side = "BUY");
+                } else {
+                    totalUSD = result.amount0;
+                    priceUSD = totalUSD / result.amount1;
+                    quoteAmount = result.amount1;
+                    log.returnValues.amount1In > 0
+                        ? (side = "SELL")
+                        : (side = "BUY");
+                }
             } else {
-                totalUSD = result.amount0;
-                priceUSD = totalUSD / result.amount1;
-                quoteAmount = result.amount1;
-                log.returnValues.amount1In > 0
-                    ? (side = "SELL")
-                    : (side = "BUY");
+                if (tokenInfo.isToken1BNB === true) {
+                    totalUSD = result.amount1 * coinPrice;
+                    priceUSD = totalUSD / result.amount0;
+                    quoteAmount = result.amount0;
+                    log.returnValues.amount0In > 0
+                        ? (side = "SELL")
+                        : (side = "BUY");
+                } else {
+                    totalUSD = result.amount0 * coinPrice;
+                    priceUSD = totalUSD / result.amount1;
+                    quoteAmount = result.amount1;
+                    log.returnValues.amount1In > 0
+                        ? (side = "SELL")
+                        : (side = "BUY");
+                }
             }
-        } else {
-            if (tokenInfo.isToken1BNB === true) {
-                totalUSD = result.amount1 * coinPrice;
-                priceUSD = totalUSD / result.amount0;
-                quoteAmount = result.amount0;
-                log.returnValues.amount0In > 0
-                    ? (side = "SELL")
-                    : (side = "BUY");
-            } else {
-                totalUSD = result.amount0 * coinPrice;
-                priceUSD = totalUSD / result.amount1;
-                quoteAmount = result.amount1;
-                log.returnValues.amount1In > 0
-                    ? (side = "SELL")
-                    : (side = "BUY");
+            tokenInfo.lastPrice = priceUSD;
+        }
+        // if this is not a pair[0]'s swap log
+        else {
+            if (!tokenInfo.lastPrice) {
+                console.log(tokenInfo.lastPrice);
+                return {};
             }
+            priceUSD = tokenInfo.lastPrice;
+            quoteAmount =
+                pair.token0 === tokenInfo.id ? result.amount0 : result.amount1;
+            totalUSD = quoteAmount * tokenInfo.lastPrice;
+            (pair.token0 === tokenInfo.id
+                ? log.returnValues.amount0In
+                : log.returnValues.amount1In) > 0
+                ? (side = "SELL")
+                : (side = "BUY");
         }
         return {
             coinPrice: coinPrice?.toFixed(3),
@@ -116,6 +136,8 @@ export const parseTxSwapLog = (
             priceUSD: priceUSD,
             quoteAmount: quoteAmount.toFixed(3),
             transactionHash: `https://bscscan.com/tx/${log.transactionHash}`,
+            dexPair: log.address,
+            token: tokenInfo.id,
         };
     });
 };

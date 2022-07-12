@@ -12,6 +12,7 @@ export interface ITrackToken {
     name: string;
     symbol: string;
     decimals: number;
+    lastPrice: number;
 
     logo?: string;
 
@@ -35,6 +36,7 @@ const trackTokenSchema = new Schema<ITrackToken>(
         name: { type: String },
         symbol: { type: String },
         decimals: { type: Number },
+        lastPrice: { type: Number, default: -1 },
 
         logo: { type: String },
 
