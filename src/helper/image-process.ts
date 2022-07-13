@@ -1,6 +1,6 @@
 import { ranksPercentage } from "../constants";
 import { floatConverter } from "./helpers";
-import { BufferStatus } from "./interface";
+import { v4 as uuidv4 } from "uuid";
 const fetch = require("node-fetch");
 
 const fs = require("fs");
@@ -152,7 +152,7 @@ const manipulateImage = async (
     const svgBuffer = Buffer.from(svgImage);
     const outputPath = `${process.cwd()}/dist/img-output/${
         pairInfo.id
-    }-${new Date().getTime()}.png`;
+    }-${uuidv4()}.png`;
 
     let rank: any = 0;
     ranksPercentage.forEach((percentage, index) => {
@@ -233,7 +233,7 @@ export const url2CacheImage = async (url: string, address: string = "") => {
     const fimg = await fetch(url);
     const logoBuffer = await fimg.buffer();
 
-    const outputPath = `${process.cwd()}/dist/logo-cached/${address}-${new Date().getTime()}.png`;
+    const outputPath = `${process.cwd()}/dist/logo-cached/${address}-${uuidv4()}.png`;
 
     await sharp(logoBuffer).resize({ width: 152 }).toFile(outputPath);
     return outputPath;

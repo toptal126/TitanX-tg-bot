@@ -28,6 +28,7 @@
     "homepage": "https://github.com/toptal126/TitanX-tg-bot#readme",
     "devDependencies": {
         "@types/node": "^16.11.4",
+        "@types/uuid": "^8.3.4",
         "@typescript-eslint/eslint-plugin": "^5.1.0",
         "@typescript-eslint/parser": "^5.1.0",
         "dotenv": "^16.0.1",
@@ -44,6 +45,7 @@
         "node-fetch": "^2.6.7",
         "sharp": "^0.30.7",
         "telegraf-command-parts": "^1.0.3",
+        "uuid": "^8.3.2",
         "web3": "^1.7.4"
     }
 }

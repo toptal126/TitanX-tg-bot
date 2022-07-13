@@ -589,24 +589,29 @@ const checkSwapLogs = async () => {
         // console.log("parsedTxLogs", parsedTxLogs);
 
         trackingTargets.forEach(async (trackChannel, index) => {
-            trackChannel.save();
-            const requiredEvents = parsedTxLogs.filter(
-                (log) => log.token === trackChannel.id
-            );
-            requiredEvents.forEach(async (log) => {
-                if (trackChannel.sellDisabled && log.side === "SELL") return;
-                log.buyerBalance =
-                    (await tokenContracts[index].methods
-                        .balanceOf(log.buyer)
-                        .call()) /
-                    10 ** trackChannel.decimals;
-                await sendSwapMessageToChannel(
-                    log,
-                    (minteds[index] - dead_amounts[index]) /
-                        10 ** trackChannel.decimals,
-                    trackChannel
+            try {
+                trackChannel.save();
+                const requiredEvents = parsedTxLogs.filter(
+                    (log) => log.token === trackChannel.id
                 );
-            });
+                requiredEvents.slice(0, 1).forEach(async (log) => {
+                    if (trackChannel.sellDisabled && log.side === "SELL")
+                        return;
+                    log.buyerBalance =
+                        (await tokenContracts[index].methods
+                            .balanceOf(log.buyer)
+                            .call()) /
+                        10 ** trackChannel.decimals;
+                    await sendSwapMessageToChannel(
+                        log,
+                        (minteds[index] - dead_amounts[index]) /
+                            10 ** trackChannel.decimals,
+                        trackChannel
+                    );
+                });
+            } catch (error) {
+                console.log(error);
+            }
         });
 
         // parsedTxLogs
