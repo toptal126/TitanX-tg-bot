@@ -150,7 +150,7 @@ const count = async (ctx: any) => {
         TrackChannel.countDocuments(),
         TrackToken.countDocuments(),
     ]);
-    ctx.reply(`There are ${count1 + count2} groups using TitanX Hawk!`);
+    ctx.reply(`There are ${count1 + count2} groups using TitanX OWL!`);
 };
 bot.command("count", count);
 
@@ -205,7 +205,8 @@ const rank_command = async (ctx: any, chatId: string, message: string) => {
         ctx.reply(RANKS_EMOTICONS.at(rank));
     } catch (error) {
         ctx.reply(
-            "Invalid wallet address or usage! Ex: /rank 0x0173A37E2211096b5E75c2A3c9d8622304FD9373"
+            `Invalid wallet address or usage!
+Example: /rank 0x0173A37E2211096b5E75c2A3c9d8622304FD9373`
         );
         console.error(error);
         return;
