@@ -2,6 +2,7 @@ import { Context, Markup, Telegraf, Telegram } from "telegraf";
 import { Update } from "typegram";
 import {
     extractTokenInfo,
+    fetchUpdatedDexToken,
     floatConverter,
     getLatestCoinPrice,
     getTokenInformation,
@@ -156,10 +157,27 @@ bot.command("count", count);
 
 const price_command = async (ctx: any, chatId: string) => {
     const trackChannel = await TrackChannel.findOne({ channelId: chatId });
-    if (trackChannel ? !!trackChannel.lastPrice : false)
+    if (!trackChannel) {
+        ctx.reply("You don't have any active tracking bot!");
+        return;
+    }
+    if (!!trackChannel.lastPrice) {
         ctx.reply(
             `Current price is $${floatConverter(trackChannel?.lastPrice || 0)}!`
         );
+        return;
+    } else {
+        const pairs = await fetchUpdatedDexToken(trackChannel.id);
+        if (pairs.length)
+            ctx.reply(
+                `Current price is $${floatConverter(
+                    pairs[0].token0 === trackChannel?.id
+                        ? pairs[0].token0Price
+                        : pairs[0].token1Price
+                )}!`
+            );
+        return;
+    }
 };
 bot.command("price", async (ctx: any) => {
     const chatId: string = "" + ctx.chat.id;

@@ -203,15 +203,26 @@ export const queryTokens = async (query: string) => {
     }
 };
 
+export const fetchUpdatedDexToken = async (tokenAddress: string) => {
+    try {
+        const response: any = await axios.get(
+            getApiUrl(`/pairs/dex/${tokenAddress}`)
+        );
+        return response.data;
+    } catch (error) {
+        return 0;
+    }
+};
+
 const getBaseLog = (x: number, y: number) => {
-    return Math.log(y) / Math.log(x);
+    return Math.log(y) / Math.log(x) - ((Math.log(y) / Math.log(x)) % 1);
 };
 
 export const floatConverter = (value: number) => {
     const len = 1 / value;
     if (value == 0) return 0;
-    if (getBaseLog(10, len) > 4) {
-        let multipled = value * 10 ** getBaseLog(10, len) - 2;
+    if (getBaseLog(10, len) >= 4) {
+        let multipled = value * 10 ** (getBaseLog(10, len) - 2);
         return "0.00.." + multipled.toFixed(6).toString().slice(4);
     }
     if (value > 10 ** 12) return `${(value / 10 ** 12).toFixed(2)}T`;
