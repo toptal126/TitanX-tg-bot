@@ -7,7 +7,8 @@ Type /set_token followed by your token address.
 For example, /set_token 0x000000`;
 
 export const OWL_HELP = `/start - Provides a greeting message and instructions for the next steps
-/add - Will provide 2 options. Address – Enter the token address you want Owl to provide updates for. Search – To find a token address on BSC.
+/set_token [token contract address] - Enter the token address you want Owl to provide updates for.
+/set_logo [IMAGE URL] - Enter the image url you want to add to your postings.
 /delete - Will delete all tracking activity ever provided.
 /deletelast - Will delete the last update provided to not clog up your group's media storage.
 /enablelast - Will no longer delete the previous update.
