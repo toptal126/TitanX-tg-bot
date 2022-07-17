@@ -54,61 +54,68 @@ const token: string = process.env.MASTER_BOT_TOKEN as string;
 const bot: Telegraf<Context<Update>> = new Telegraf(token);
 
 const adminFilterMiddleWare = () => async (ctx: any, next: any) => {
-    const message = ctx.update.message?.text;
-    const chatId = ctx.chat.id;
-    const userId = ctx.from ? ctx.from.id : chatId;
+    try {
+        const message = ctx.update.message?.text;
+        const chatId = ctx.chat.id;
+        const userId = ctx.from ? ctx.from.id : chatId;
 
-    // Continue if the chat is Private
-    if (ctx.chat.type === "private") {
-        // Ignore if they wrote admin commands
-        let isAdminCommand = false;
-        ADMIN_COMMANDS.forEach((command) => {
-            if (message.includes(`/${command}`)) isAdminCommand = true;
-        });
-        if (isAdminCommand) {
-            ctx.reply("You can't command bot via DM.");
-            return;
-        }
-
-        return next();
-    }
-    if (ctx.chat.type === "channel") {
-        try {
-            const administrators = await bot.telegram.getChatAdministrators(
-                chatId
-            );
-
-            // Ignore if the bot is not an administrator
-            if (
-                !administrators.find((item) => item.user.id === bot.botInfo?.id)
-            )
+        // Continue if the chat is Private
+        if (ctx.chat.type === "private") {
+            // Ignore if they wrote admin commands
+            let isAdminCommand = false;
+            ADMIN_COMMANDS.forEach((command) => {
+                if (message.includes(`/${command}`)) isAdminCommand = true;
+            });
+            if (isAdminCommand) {
+                ctx.reply("You can't command bot via DM.");
                 return;
+            }
+
             return next();
-        } catch (error) {
+        }
+        if (ctx.chat.type === "channel") {
+            try {
+                const administrators = await bot.telegram.getChatAdministrators(
+                    chatId
+                );
+
+                // Ignore if the bot is not an administrator
+                if (
+                    !administrators.find(
+                        (item) => item.user.id === bot.botInfo?.id
+                    )
+                )
+                    return;
+                return next();
+            } catch (error) {
+                return;
+            }
+        }
+        if (!message) return;
+
+        const administrators = await bot.telegram.getChatAdministrators(chatId);
+
+        // Ignore if the bot is not an administrator
+        if (!administrators.find((item) => item.user.id === bot.botInfo?.id)) {
+            console.log("I am not a admin");
             return;
         }
-    }
-    if (!message) return;
 
-    const administrators = await bot.telegram.getChatAdministrators(chatId);
-
-    // Ignore if the bot is not an administrator
-    if (!administrators.find((item) => item.user.id === bot.botInfo?.id)) {
-        console.log("I am not a admin");
+        let isPublicCommand = false;
+        PUBLIC_COMMANDS.forEach((command) => {
+            if (message.includes(`/${command}`)) isPublicCommand = true;
+        });
+        // Ignore if the message sender is not an administrator
+        if (
+            !isPublicCommand &&
+            !administrators.find((item) => item.user.id === userId)
+        )
+            return;
+        return next();
+    } catch (error) {
+        console.error(error);
         return;
     }
-
-    let isPublicCommand = false;
-    PUBLIC_COMMANDS.forEach((command) => {
-        if (message.includes(`/${command}`)) isPublicCommand = true;
-    });
-    // Ignore if the message sender is not an administrator
-    if (
-        !isPublicCommand &&
-        !administrators.find((item) => item.user.id === userId)
-    )
-        return;
-    return next();
 };
 bot.use(adminFilterMiddleWare());
 

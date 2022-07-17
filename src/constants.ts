@@ -21,7 +21,7 @@ export const OWL_HELP = `/start - Provides a greeting message and instructions f
 
 export const ranksPercentage = [0.05, 0.1, 0.25, 0.5, 0.75, 1, 2];
 
-export const OWL_RANKS = `Rank Inforamtion
+export const OWL_RANKS = `Rank Information
 <0.00001% > 0.049% (Tortoise) 🐢
 0.05% > 0.2499% (Frog) 🐸
 <0.25% > 0.499% (Fish) 🐟
