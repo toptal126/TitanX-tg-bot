@@ -385,7 +385,9 @@ const disablesell = async (ctx: any) => {
         await refetchTrackingTargets();
 
         ctx.reply("Alert for token sale is disabled!");
-    } catch (error) {}
+    } catch (error) {
+        console.log(error);
+    }
 };
 bot.command("disablesell", disablesell);
 
@@ -431,7 +433,9 @@ const deletelast = async (ctx: any) => {
         await refetchTrackingTargets();
 
         ctx.reply("Last post for token sale will be deleted once get updated!");
-    } catch (error) {}
+    } catch (error) {
+        console.log(error);
+    }
 };
 bot.command("deletelast", deletelast);
 
@@ -454,7 +458,9 @@ const enablelast = async (ctx: any) => {
         await refetchTrackingTargets();
 
         ctx.reply("Last post for token sale will be deleted once get updated!");
-    } catch (error) {}
+    } catch (error) {
+        console.log(error);
+    }
 };
 bot.command("enablelast", enablelast);
 
